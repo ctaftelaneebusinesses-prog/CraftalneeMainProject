@@ -150,6 +150,8 @@ class HostingTest(unittest.TestCase):
                 "postgresql+psycopg://postgres.abc:pw@aws-0-ap-south-1.pooler.supabase.com:5432/postgres",
             "postgres://u:p@h:5432/d": "postgresql+psycopg://u:p@h:5432/d",
             "postgresql+psycopg://u:p@h/d": "postgresql+psycopg://u:p@h/d",
+            "postgresql://u:p@h:5432/postgres\n": "postgresql+psycopg://u:p@h:5432/postgres",  # pasted with Enter
+            "  postgres://u:p@h/d \r\n": "postgresql+psycopg://u:p@h/d",
         }
         for given, expected in cases.items():
             with mock.patch.dict(os.environ, {"CRAFTLANEE_DATABASE_URL": given}):

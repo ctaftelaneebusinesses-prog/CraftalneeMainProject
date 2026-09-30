@@ -72,7 +72,8 @@ def database_url(instance_path):
 
     "postgres://" and bare "postgresql://" are pointed at the psycopg 3 driver.
     """
-    url = os.environ.get("CRAFTLANEE_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    # strip(): values pasted into a hosting dashboard often carry a trailing newline or space
+    url = (os.environ.get("CRAFTLANEE_DATABASE_URL") or os.environ.get("DATABASE_URL") or "").strip()
     if not url:
         return "sqlite:///" + os.path.join(instance_path, "craftlanee.db")
     for prefix in ("postgres://", "postgresql://"):

@@ -99,10 +99,15 @@ class SupabaseStorage:
             pass  # a leftover file must never break a request
 
 
+def _env(name, default=""):
+    """Environment value without surrounding whitespace: values pasted into a dashboard often end in a newline."""
+    return (os.environ.get(name) or default).strip()
+
+
 def configured_backend(config):
-    url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
+    url, key = _env("SUPABASE_URL"), _env("SUPABASE_SERVICE_KEY")
     if config.get("STORAGE_BACKEND") != "local" and url and key:
-        return SupabaseStorage(url, key, os.environ.get("SUPABASE_BUCKET", "craftlanee"))
+        return SupabaseStorage(url, key, _env("SUPABASE_BUCKET", "craftlanee"))
     return LocalStorage(config["STORAGE_DIR"])
 
 
