@@ -103,9 +103,9 @@ export default function Settings() {
           <Field label="Founder name"><Input {...bind("founder_name")} /></Field>
           <Field label="Designation"><Input {...bind("founder_designation")} /></Field>
         </Section>
-        <Section icon={<PenLine />} title="HR signatory" text="Co-signs offer, joining and relieving letters and payslips next to the founder. Leave empty to have the founder sign alone.">
-          <Field label="HR name" optional><Input {...bind("hr_name")} /></Field>
-          <Field label="Designation" optional><Input {...bind("hr_designation")} placeholder="Manager" /></Field>
+        <Section icon={<PenLine />} title="HR signatory" text="Co-signs offer, joining and relieving letters and payslips next to the founder.">
+          <Field label="HR name"><Input {...bind("hr_name")} required /></Field>
+          <Field label="Designation"><Input {...bind("hr_designation")} placeholder="Manager" required /></Field>
           {img("hr_signature", "HR signature", "Scan on white or transparent", s.hr_signature_url)}
         </Section>
         <Section icon={<Palette />} title="Branding" text="Transparent PNGs look best. A letterhead image, if set, replaces the logo header on PDFs.">
@@ -135,7 +135,10 @@ export default function Settings() {
           ))}
         </div>
         <div className="sticky bottom-0 z-10 flex justify-end gap-2 px-6 sm:px-8 py-4 border-t divider panel backdrop-blur-xl">
-          <Button variant="primary" icon={<Check />} loading={save.isPending} onClick={() => save.mutate()}>Save settings</Button>
+          <Button variant="primary" icon={<Check />} loading={save.isPending} onClick={() => {
+            if (!v.hr_name.trim() || !v.hr_designation.trim()) { toast.error("HR name and designation are required"); return; }
+            save.mutate();
+          }}>Save settings</Button>
         </div>
       </Card>
     </>

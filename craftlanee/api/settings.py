@@ -36,6 +36,10 @@ def settings_save():
     for field, maxlen in TEXT.items():
         if field in form:
             setattr(s, field, clean(form, field, maxlen) or None)
+    for field, label in (("hr_name", "HR name"), ("hr_designation", "HR designation")):
+        if field in form and not getattr(s, field):
+            db.session.rollback()
+            fail(f"{label} is required.")
     for field in RICH:
         if field in form:
             setattr(s, field, sanitize_html(form.get(field)) or None)
