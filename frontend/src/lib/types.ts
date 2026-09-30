@@ -36,6 +36,13 @@ export interface EmployeeFull extends EmployeeBrief {
   bank_ifsc: string | null;
   manager: { id: number; full_name: string } | null;
   created_at: string | null;
+  college: string | null;            // interns & trainees
+  study_department: string | null;   // department / course at college
+  experience_level: "fresher" | "experienced" | null;
+  experience_years: number | null;
+  previous_company: string | null;
+  resume_name: string | null;
+  resume_url: string | null;
 }
 
 /** Console areas the founder can grant (mirrors PERMISSIONS in craftlanee/models.py). */
@@ -87,6 +94,9 @@ export interface CompanySettings extends Company {
   relieving_body: string | null;
   mou_terms: string | null;
   signature_url: string | null;
+  hr_name: string | null;
+  hr_designation: string | null;
+  hr_signature_url: string | null;
   show_name_with_logo: boolean;
   letterhead_url: string | null;
 }

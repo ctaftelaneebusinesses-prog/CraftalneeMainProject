@@ -45,9 +45,9 @@ def permission_required(perm):
 KIND_AREAS = {
     "offer": ("documents", "employees"), "joining": ("documents", "employees"),
     "relieving": ("documents", "employees"), "mou": ("documents",),
-    "payslip": ("payroll", "employees"), "doc": ("employees",), "photo": ("employees",),
+    "payslip": ("payroll", "employees"), "doc": ("employees",), "photo": ("employees",), "resume": ("employees",),
     "receipt": ("finance",), "invoice": ("finance",), "announcement": ("announcements",),
-    "logo": ("settings",), "signature": ("settings",), "letterhead": ("settings",),
+    "logo": ("settings",), "signature": ("settings",), "hr_signature": ("settings",), "letterhead": ("settings",),
 }
 
 

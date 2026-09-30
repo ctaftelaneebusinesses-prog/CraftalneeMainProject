@@ -20,7 +20,7 @@ from .utils import read_file
 
 bp = Blueprint("files", __name__, url_prefix="/files")
 
-EMPLOYEE_KINDS = {"offer", "joining", "relieving", "payslip", "doc", "photo"}
+EMPLOYEE_KINDS = {"offer", "joining", "relieving", "payslip", "doc", "photo", "resume"}
 
 
 def _resolve(kind, obj_id):
@@ -40,6 +40,9 @@ def _resolve(kind, obj_id):
     if kind == "doc":
         r = db.session.get(EmployeeDocument, obj_id)
         return r, r and r.file_path, r and (r.original_name or r.title), r and r.employee_id
+    if kind == "resume":
+        r = db.session.get(Employee, obj_id)
+        return r, r and r.resume_path, r and (r.resume_name or f"{r.emp_code}-resume"), r and r.id
     if kind == "photo":
         r = db.session.get(Employee, obj_id)
         return r, r and r.photo_path, None, r and r.id
@@ -55,7 +58,7 @@ def _resolve(kind, obj_id):
     if kind == "receipt":
         r = db.session.get(Expense, obj_id)
         return r, r and r.receipt_path, r and (r.receipt_name or f"{r.code}-receipt"), None
-    if kind in ("logo", "signature", "letterhead"):
+    if kind in ("logo", "signature", "hr_signature", "letterhead"):
         r = CompanySettings.query.first()
         return r, r and getattr(r, f"{kind}_path"), None, None
     abort(404)

@@ -12,7 +12,7 @@ import { FileDrop } from "@/components/ui/overlay";
 import { Segmented } from "@/components/ui/core";
 import { RichTextEditor } from "@/components/RichTextEditor";
 
-const TEXT = ["company_name", "tagline", "address", "phone", "email", "website", "gstin", "founder_name", "founder_designation", "offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms"] as const;
+const TEXT = ["company_name", "tagline", "address", "phone", "email", "website", "gstin", "founder_name", "founder_designation", "hr_name", "hr_designation", "offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms"] as const;
 type RichKey = "offer_terms" | "internship_terms" | "joining_body" | "relieving_body" | "mou_terms";
 const RICH_TABS: { value: RichKey; label: string; hint: string }[] = [
   { value: "offer_terms", label: "Offer T&C", hint: "Terms & conditions on employment offer letters." },
@@ -22,7 +22,7 @@ const RICH_TABS: { value: RichKey; label: string; hint: string }[] = [
   { value: "mou_terms", label: "MOU clauses", hint: "Default terms & conditions for new MOUs." },
 ];
 type Key = typeof TEXT[number];
-type Img = "logo" | "signature" | "letterhead";
+type Img = "logo" | "signature" | "hr_signature" | "letterhead";
 
 function Section({ icon, title, text, children }: { icon: ReactNode; title: string; text: string; children: ReactNode }) {
   return (
@@ -44,8 +44,8 @@ export default function Settings() {
   const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string> }>("/settings") });
   const [richTab, setRichTab] = useState<RichKey>("offer_terms");
   const [v, setV] = useState<Record<Key, string>>(Object.fromEntries(TEXT.map((k) => [k, ""])) as Record<Key, string>);
-  const [files, setFiles] = useState<Record<Img, File | null>>({ logo: null, signature: null, letterhead: null });
-  const [remove, setRemove] = useState<Record<Img, boolean>>({ logo: false, signature: false, letterhead: false });
+  const [files, setFiles] = useState<Record<Img, File | null>>({ logo: null, signature: null, hr_signature: null, letterhead: null });
+  const [remove, setRemove] = useState<Record<Img, boolean>>({ logo: false, signature: false, hr_signature: false, letterhead: false });
   const [nameWithLogo, setNameWithLogo] = useState(false);
 
   useEffect(() => { if (data) setNameWithLogo(!!data.settings.show_name_with_logo); }, [data]);
@@ -58,12 +58,12 @@ export default function Settings() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: () => api.post<{ settings: CompanySettings }>("/settings", toForm({ ...v, show_name_with_logo: nameWithLogo, remove_logo: remove.logo, remove_signature: remove.signature, remove_letterhead: remove.letterhead }, files)),
+    mutationFn: () => api.post<{ settings: CompanySettings }>("/settings", toForm({ ...v, show_name_with_logo: nameWithLogo, remove_logo: remove.logo, remove_signature: remove.signature, remove_hr_signature: remove.hr_signature, remove_letterhead: remove.letterhead }, files)),
     onSuccess: (r) => {
       qc.setQueryData(["settings"], { ...data, settings: r.settings });
       setSession({ company: { company_name: r.settings.company_name, tagline: r.settings.tagline, logo_url: r.settings.logo_url } });
-      setFiles({ logo: null, signature: null, letterhead: null });
-      setRemove({ logo: false, signature: false, letterhead: false });
+      setFiles({ logo: null, signature: null, hr_signature: null, letterhead: null });
+      setRemove({ logo: false, signature: false, hr_signature: false, letterhead: false });
       toast.success("Settings saved — new documents will use these details");
     },
   });
@@ -102,6 +102,11 @@ export default function Settings() {
         <Section icon={<PenLine />} title="Signatory" text="Signs offer letters, joining letters, MOUs and payslips.">
           <Field label="Founder name"><Input {...bind("founder_name")} /></Field>
           <Field label="Designation"><Input {...bind("founder_designation")} /></Field>
+        </Section>
+        <Section icon={<PenLine />} title="HR signatory" text="Co-signs offer, joining and relieving letters and payslips next to the founder. Leave empty to have the founder sign alone.">
+          <Field label="HR name" optional><Input {...bind("hr_name")} /></Field>
+          <Field label="Designation" optional><Input {...bind("hr_designation")} placeholder="HR Manager" /></Field>
+          {img("hr_signature", "HR signature", "Scan on white or transparent", s.hr_signature_url)}
         </Section>
         <Section icon={<Palette />} title="Branding" text="Transparent PNGs look best. A letterhead image, if set, replaces the logo header on PDFs.">
           {img("logo", "Logo", "Square or wide · sidebar & PDFs", s.logo_url)}

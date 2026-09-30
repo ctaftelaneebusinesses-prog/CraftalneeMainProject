@@ -1,5 +1,6 @@
 """Offer letters, joining letters, MOUs and the Document Center."""
 import io
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from flask import request, send_file
@@ -350,6 +351,8 @@ def mous_delete(mou_id):
 # ------------------------------------------------------------------ Document Center
 
 CATEGORIES = ("all", "mou", "offer", "joining", "relieving", "payslip", "other")
+KIND_CATEGORY = {"mou": "mou", "offer": "offer", "joining": "joining", "relieving": "relieving",
+                 "payslip": "payslip", "doc": "other"}
 
 
 def collect(category="all", q="", archived=False, limit=None):
@@ -417,6 +420,13 @@ def documents_index():
     if category not in CATEGORIES:
         category = "all"
     archived = request.args.get("show") == "archived"
-    items = [i for i in collect(category, clean(request.args, "q"), archived) if can_view_document(i["kind"])]
-    counts = {c: sum(1 for i in collect(c, "", archived) if can_view_document(i["kind"])) for c in CATEGORIES}
+    q = clean(request.args, "q")
+    # One pass over everything visible gives the tab counts; the listed items reuse it when possible.
+    everything = [i for i in collect("all", "", archived) if can_view_document(i["kind"])]
+    tab = Counter(KIND_CATEGORY.get(i["kind"], "other") for i in everything)
+    counts = {c: len(everything) if c == "all" else tab.get(c, 0) for c in CATEGORIES}
+    if q:
+        items = [i for i in collect(category, q, archived) if can_view_document(i["kind"])]
+    else:
+        items = [i for i in everything if category == "all" or KIND_CATEGORY.get(i["kind"], "other") == category]
     return ok(items=items, counts=counts)

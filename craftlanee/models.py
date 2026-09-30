@@ -21,6 +21,8 @@ ROLE_EMPLOYEE = "employee"
 EMPLOYMENT_TYPES = ["Full-time", "Part-time", "Contract", "Freelancer", "Intern", "Trainee"]
 FIXED_TERM_TYPES = {"Contract", "Freelancer", "Intern", "Trainee"}   # have an end date
 STIPEND_TYPES = {"Intern", "Trainee"}                                  # paid a stipend, get internship letters
+OPTIONAL_PAY_TYPES = {"Intern", "Trainee", "Contract"}                 # stipend / pay may be left blank (unpaid)
+EXPERIENCE_LEVELS = ["fresher", "experienced"]
 # Each employment type has its own ID series: CL-EMP-0001, CL-INT-0001, CL-FREE-0001, ...
 EMP_CODE_PREFIX = {"Full-time": "CL-EMP", "Part-time": "CL-PT", "Contract": "CL-CON",
                    "Freelancer": "CL-FREE", "Intern": "CL-INT", "Trainee": "CL-TRN"}
@@ -70,7 +72,7 @@ class User(UserMixin, TimestampMixin, db.Model):
     permissions = db.Column(db.Text)  # JSON list of PERMISSIONS keys; NULL on an admin = everything (older grants)
     last_login_at = db.Column(db.DateTime)
 
-    employee = db.relationship("Employee", back_populates="user")
+    employee = db.relationship("Employee", back_populates="user", lazy="selectin")
 
     @property
     def is_active(self):
@@ -143,6 +145,15 @@ class Employee(TimestampMixin, db.Model):
     roles = db.Column(db.Text)  # JSON list, e.g. ["Full Stack Developer", "Project Manager", "HR"]
     manager_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="SET NULL"), index=True)
     end_date = db.Column(db.Date)  # contract / internship end
+    # interns & trainees
+    college = db.Column(db.String(160))
+    study_department = db.Column(db.String(120))  # department / course at college, e.g. "CSE"
+    # everyone else
+    experience_level = db.Column(db.String(20))  # EXPERIENCE_LEVELS
+    experience_years = db.Column(db.Numeric(4, 1))
+    previous_company = db.Column(db.String(160))
+    resume_path = db.Column(db.String(255))
+    resume_name = db.Column(db.String(255))
 
     monthly_salary = db.Column(Money, default=0, nullable=False)
     salary_effective_date = db.Column(db.Date)
@@ -153,8 +164,8 @@ class Employee(TimestampMixin, db.Model):
 
     status = db.Column(db.String(20), default="active", nullable=False)  # active | inactive
 
-    manager = db.relationship("Employee", remote_side="Employee.id", backref="reports")
-    user = db.relationship("User", back_populates="employee", uselist=False,
+    manager = db.relationship("Employee", remote_side="Employee.id", backref="reports", lazy="selectin")
+    user = db.relationship("User", back_populates="employee", uselist=False, lazy="selectin",
                            cascade="all, delete-orphan", passive_deletes=True)
     documents = db.relationship("EmployeeDocument", back_populates="employee",
                                 cascade="all, delete-orphan", passive_deletes=True,
@@ -235,7 +246,7 @@ class EmployeeDocument(TimestampMixin, db.Model):
     visible_to_employee = db.Column(db.Boolean, default=True, nullable=False)
     archived = db.Column(db.Boolean, default=False, nullable=False)
 
-    employee = db.relationship("Employee", back_populates="documents")
+    employee = db.relationship("Employee", back_populates="documents", lazy="selectin")
 
 
 class OfferLetter(TimestampMixin, db.Model):
@@ -261,7 +272,7 @@ class OfferLetter(TimestampMixin, db.Model):
     file_path = db.Column(db.String(255))
     archived = db.Column(db.Boolean, default=False, nullable=False)
 
-    employee = db.relationship("Employee", back_populates="offer_letters")
+    employee = db.relationship("Employee", back_populates="offer_letters", lazy="selectin")
 
 
 class JoiningLetter(TimestampMixin, db.Model):
@@ -284,7 +295,7 @@ class JoiningLetter(TimestampMixin, db.Model):
     file_path = db.Column(db.String(255))
     archived = db.Column(db.Boolean, default=False, nullable=False)
 
-    employee = db.relationship("Employee", back_populates="joining_letters")
+    employee = db.relationship("Employee", back_populates="joining_letters", lazy="selectin")
 
 
 class Mou(TimestampMixin, db.Model):
@@ -325,8 +336,8 @@ class Payroll(TimestampMixin, db.Model):
     finalized_at = db.Column(db.DateTime)
     expense_id = db.Column(db.Integer, db.ForeignKey("expenses.id", ondelete="SET NULL"))
 
-    employee = db.relationship("Employee", back_populates="payroll_entries")
-    payslip = db.relationship("Payslip", back_populates="payroll", uselist=False,
+    employee = db.relationship("Employee", back_populates="payroll_entries", lazy="selectin")
+    payslip = db.relationship("Payslip", back_populates="payroll", uselist=False, lazy="selectin",
                               cascade="all, delete-orphan", passive_deletes=True)
 
     def recalc(self):
@@ -351,7 +362,7 @@ class Payslip(TimestampMixin, db.Model):
     file_path = db.Column(db.String(255))
 
     payroll = db.relationship("Payroll", back_populates="payslip")
-    employee = db.relationship("Employee", back_populates="payslips")
+    employee = db.relationship("Employee", back_populates="payslips", lazy="selectin")
 
 
 class Income(TimestampMixin, db.Model):
@@ -365,7 +376,7 @@ class Income(TimestampMixin, db.Model):
     payment_status = db.Column(db.String(30), default="Received", nullable=False)
     notes = db.Column(db.Text)
 
-    invoice = db.relationship("Invoice", back_populates="income", uselist=False)
+    invoice = db.relationship("Invoice", back_populates="income", uselist=False, lazy="selectin")
 
     @property
     def code(self):
@@ -396,7 +407,7 @@ class Invoice(TimestampMixin, db.Model):
     income_id = db.Column(db.Integer, db.ForeignKey("income.id", ondelete="SET NULL"))
     file_path = db.Column(db.String(255))
 
-    income = db.relationship("Income", back_populates="invoice")
+    income = db.relationship("Income", back_populates="invoice", lazy="selectin")
 
     @property
     def lines(self):
@@ -470,6 +481,10 @@ class CompanySettings(TimestampMixin, db.Model):
     founder_designation = db.Column(db.String(120), default="Founder & CEO")
     logo_path = db.Column(db.String(255))
     signature_path = db.Column(db.String(255))
+    # HR co-signs employee documents (offer/joining/relieving letters, payslips) next to the founder.
+    hr_name = db.Column(db.String(120))
+    hr_designation = db.Column(db.String(120), default="HR Manager")
+    hr_signature_path = db.Column(db.String(255))
     letterhead_path = db.Column(db.String(255))
     # Most logos already contain the company name (a wordmark). Only print the name as text too if asked.
     show_name_with_logo = db.Column(db.Boolean, default=False, nullable=False)
@@ -508,7 +523,7 @@ class Leave(TimestampMixin, db.Model):
     decided_at = db.Column(db.DateTime)
     decision_note = db.Column(db.String(255))
 
-    employee = db.relationship("Employee", back_populates="leaves")
+    employee = db.relationship("Employee", back_populates="leaves", lazy="selectin")
 
 
 class Holiday(TimestampMixin, db.Model):
@@ -532,10 +547,10 @@ class Task(TimestampMixin, db.Model):
     status = db.Column(db.String(20), default="todo", nullable=False, index=True)
     completed_at = db.Column(db.DateTime)
 
-    assignee = db.relationship("Employee", back_populates="tasks")
-    items = db.relationship("TaskItem", back_populates="task", cascade="all, delete-orphan",
+    assignee = db.relationship("Employee", back_populates="tasks", lazy="selectin")
+    items = db.relationship("TaskItem", back_populates="task", cascade="all, delete-orphan", lazy="selectin",
                             order_by="TaskItem.position, TaskItem.id")
-    notes = db.relationship("TaskNote", back_populates="task", cascade="all, delete-orphan",
+    notes = db.relationship("TaskNote", back_populates="task", cascade="all, delete-orphan", lazy="selectin",
                             order_by="TaskNote.created_at")
 
 
@@ -585,9 +600,10 @@ class Announcement(TimestampMixin, db.Model):
     author_name = db.Column(db.String(120))
 
     recipients = db.relationship("Employee", secondary=announcement_recipients, lazy="selectin")
-    photos = db.relationship("AnnouncementPhoto", back_populates="announcement", cascade="all, delete-orphan",
+    photos = db.relationship("AnnouncementPhoto", back_populates="announcement", cascade="all, delete-orphan", lazy="selectin",
                              order_by="AnnouncementPhoto.position, AnnouncementPhoto.id")
-    reads = db.relationship("AnnouncementRead", back_populates="announcement", cascade="all, delete-orphan")
+    reads = db.relationship("AnnouncementRead", back_populates="announcement", cascade="all, delete-orphan",
+                            lazy="selectin")
 
     @property
     def link_list(self):
@@ -643,4 +659,4 @@ class RelievingLetter(TimestampMixin, db.Model):
     file_path = db.Column(db.String(255))
     archived = db.Column(db.Boolean, default=False, nullable=False)
 
-    employee = db.relationship("Employee", back_populates="relieving_letters")
+    employee = db.relationship("Employee", back_populates="relieving_letters", lazy="selectin")

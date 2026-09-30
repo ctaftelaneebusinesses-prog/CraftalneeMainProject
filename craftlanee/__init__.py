@@ -14,6 +14,7 @@ from sqlalchemy import event
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.engine import Engine
 
+from .compress import gzip_response
 from .extensions import db, login_manager
 from .security import csrf_protect, set_security_headers
 
@@ -85,9 +86,10 @@ def database_url(instance_path):
 def _engine_options(url):
     if not url.startswith("postgresql"):
         return {}
-    # pre_ping + recycle: survive the host sleeping and Supabase closing idle connections.
+    # No pre_ping: it costs a network round trip on every request. Instead connections are retired after
+    # 3 minutes, well before Supabase's pooler drops idle ones (and a sleeping Render instance restarts fresh).
     # prepare_threshold=None: works through Supabase's pgbouncer poolers (no server-side prepared statements).
-    return {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5, "max_overflow": 5,
+    return {"pool_pre_ping": False, "pool_recycle": 180, "pool_size": 5, "max_overflow": 5,
             "connect_args": {"prepare_threshold": None, "connect_timeout": 10}}
 
 
@@ -137,6 +139,7 @@ def create_app(test_config=None):
     app.register_blueprint(files.bp)
 
     app.before_request(csrf_protect)
+    app.after_request(gzip_response)
     app.after_request(set_security_headers)
 
     def _is_api():

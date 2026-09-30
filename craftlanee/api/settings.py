@@ -13,9 +13,10 @@ from . import common as S
 from .common import bp, fail, ok
 
 TEXT = {"company_name": 160, "tagline": 200, "address": 1000, "phone": 40, "email": 160,
-        "website": 160, "gstin": 30, "founder_name": 120, "founder_designation": 120}
+        "website": 160, "gstin": 30, "founder_name": 120, "founder_designation": 120,
+        "hr_name": 120, "hr_designation": 120}
 RICH = ("offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms")
-IMAGES = ("logo", "signature", "letterhead")
+IMAGES = ("logo", "signature", "hr_signature", "letterhead")
 
 
 @bp.get("/settings")
@@ -51,7 +52,7 @@ def settings_save():
                 rel, _ = save_upload(upload, "company", IMAGE_EXTS)
             except ValueError as exc:
                 db.session.rollback()
-                fail(f"{key.title()}: {exc}")
+                fail(f"{key.replace('_', ' ').title()}: {exc}")
             old_files.append(getattr(s, attr))
             setattr(s, attr, rel)
         elif form.get(f"remove_{key}") in ("1", "true"):

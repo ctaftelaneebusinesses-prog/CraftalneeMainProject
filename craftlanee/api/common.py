@@ -97,6 +97,11 @@ def employee_full(e, include_bank=True):
         "salary_effective_date": iso(e.salary_effective_date),
         "manager": ({"id": e.manager.id, "full_name": e.manager.full_name} if e.manager else None),
         "created_at": iso(e.created_at),
+        "college": e.college, "study_department": e.study_department,
+        "experience_level": e.experience_level,
+        "experience_years": float(e.experience_years) if e.experience_years is not None else None,
+        "previous_company": e.previous_company,
+        "resume_name": e.resume_name, "resume_url": file_url("resume", e) if e.resume_path else None,
     }
     if include_bank:
         data |= {"bank_name": e.bank_name, "bank_account_name": e.bank_account_name,
@@ -225,10 +230,12 @@ def company(s, full=False):
         data |= {"address": s.address, "phone": s.phone, "email": s.email, "website": s.website,
                  "gstin": s.gstin, "founder_name": s.founder_name,
                  "founder_designation": s.founder_designation,
+                 "hr_name": s.hr_name, "hr_designation": s.hr_designation,
                  "offer_terms": s.offer_terms, "internship_terms": s.internship_terms,
                  "joining_body": s.joining_body, "relieving_body": s.relieving_body, "mou_terms": s.mou_terms,
                  "show_name_with_logo": bool(s.show_name_with_logo),
                  "signature_url": file_url("signature", s) if s.signature_path else None,
+                 "hr_signature_url": file_url("hr_signature", s) if s.hr_signature_path else None,
                  "letterhead_url": file_url("letterhead", s) if s.letterhead_path else None}
     return data
 

@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BriefcaseBusiness, Check, Landmark, Lock, Network, Shapes, UserRound } from "lucide-react";
+import { BriefcaseBusiness, Check, FileText, GraduationCap, Landmark, Lock, Network, Shapes, UserRound } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { useEmployeeOptions, useFormState, useMeta } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import type { EmployeeProfile } from "@/lib/types";
-import { Avatar, Button, Card, Field, Input, MoneyInput, PageHeader, PageSkeleton, Textarea } from "@/components/ui/core";
+import { Avatar, Button, Card, Field, Input, MoneyInput, PageHeader, PageSkeleton, Segmented, Textarea } from "@/components/ui/core";
 import { FileDrop } from "@/components/ui/overlay";
 import { RoleInput } from "@/components/RoleInput";
 import { EmploymentTypePicker } from "@/components/EmploymentTypePicker";
@@ -17,7 +17,10 @@ const EMPTY = {
   emp_code: "", full_name: "", phone: "", email: "", date_of_birth: "", address: "",
   department: "", joining_date: "", end_date: "", employment_type: "Full-time", work_location: "",
   monthly_salary: "", salary_effective_date: "", bank_name: "", bank_account_name: "", bank_account_number: "", bank_ifsc: "",
+  college: "", study_department: "", experience_level: "", experience_years: "", previous_company: "",
 };
+/** Pay can be left blank (unpaid) for these types — mirrors OPTIONAL_PAY_TYPES in craftlanee/models.py. */
+const OPTIONAL_PAY = ["Intern", "Trainee", "Contract"];
 type Values = typeof EMPTY;
 
 /** What the ID is called for each employment type (mirrors EMP_CODE_PREFIX in craftlanee/models.py). */
@@ -53,6 +56,8 @@ export default function EmployeeForm() {
   const [roles, setRoles] = useState<string[]>([]);
   const [managerId, setManagerId] = useState<number | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [resume, setResume] = useState<File | null>(null);
+  const [removeResume, setRemoveResume] = useState(false);
   const [typeChosen, setTypeChosen] = useState(editing);
   const [codeTouched, setCodeTouched] = useState(false);
   const isSelf = editing && user?.employee?.id === Number(id) && !user?.is_owner;
@@ -80,7 +85,7 @@ export default function EmployeeForm() {
 
   const save = useMutation({
     mutationFn: () => {
-      const fd = toForm({ ...values, roles: JSON.stringify(roles), manager_id: managerId ?? "" }, { photo });
+      const fd = toForm({ ...values, roles: JSON.stringify(roles), manager_id: managerId ?? "", remove_resume: removeResume && !resume }, { photo, resume });
       return editing ? api.put<{ employee: EmployeeProfile }>(`/employees/${id}`, fd) : api.post<{ employee: EmployeeProfile }>("/employees", fd);
     },
     onSuccess: (res) => {
@@ -96,7 +101,10 @@ export default function EmployeeForm() {
   if (editing && existing.isLoading) return <PageSkeleton />;
   const fixedTerm = meta.fixed_term_types.includes(values.employment_type);
   const stipend = meta.stipend_types.includes(values.employment_type);
+  const payOptional = OPTIONAL_PAY.includes(values.employment_type);
+  const experienced = values.experience_level === "experienced";
   const preview = existing.data?.employee;
+  const currentResume = preview?.resume_url && !removeResume && !resume ? preview : null;
   const submit = (e: FormEvent) => { e.preventDefault(); if (!roles.length) { toast.error("Add at least one role."); return; } save.mutate(); };
 
   return (
@@ -139,6 +147,34 @@ export default function EmployeeForm() {
           {fixedTerm ? <Field label={stipend ? "Internship end date" : "Contract end date"}><Input {...bind("end_date")} type="date" /></Field> : <div />}
         </Section>
 
+        <Section icon={stipend ? <GraduationCap /> : <FileText />} title={stipend ? "Education" : "Experience"}
+          text={stipend ? "Where the intern is studying. Shown on their profile." : "Fresher or experienced — and their resume, if you have it."}>
+          {stipend ? (<>
+            <Field label="College / University" optional><Input {...bind("college")} maxLength={160} placeholder="e.g. NIT Warangal" /></Field>
+            <Field label="Department / Course" optional><Input {...bind("study_department")} maxLength={120} placeholder="e.g. Computer Science (B.Tech, 3rd year)" /></Field>
+          </>) : (<>
+            <Field label="Experience" className="sm:col-span-2">
+              <Segmented layoutId="exp-level" value={values.experience_level || "none"} onChange={(v) => set("experience_level", v === "none" ? "" : v)}
+                options={[{ value: "fresher", label: "Fresher" }, { value: "experienced", label: "Experienced" }, { value: "none", label: "Not set" }]} />
+            </Field>
+            {experienced && (<>
+              <Field label="Years of experience" optional><Input {...bind("experience_years")} type="number" min={0} max={60} step={0.5} inputMode="decimal" placeholder="e.g. 3" /></Field>
+              <Field label="Previous company" optional><Input {...bind("previous_company")} maxLength={160} placeholder="e.g. Infosys" /></Field>
+            </>)}
+          </>)}
+          <Field label="Resume" optional className="sm:col-span-2" hint="PDF or Word. Only admins with Employees access and this person can open it.">
+            {currentResume ? (
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+                <FileText className="size-5 text-brand-300 shrink-0" />
+                <a href={currentResume.resume_url!} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 truncate text-[13.5px] hover:text-brand-300">{currentResume.resume_name ?? "Resume"}</a>
+                <Button size="sm" variant="ghost" onClick={() => setRemoveResume(true)}>Remove</Button>
+              </div>
+            ) : (
+              <FileDrop file={resume} onFile={(f) => { setResume(f); if (f) setRemoveResume(false); }} accept=".pdf,.doc,.docx" label="Upload resume" hint="PDF, DOC or DOCX" />
+            )}
+          </Field>
+        </Section>
+
         <Section icon={<Network />} title="Reporting line" text="Builds the team tree. Leaders can assign tasks to everyone below them.">
           <Field label="Reports to" className="sm:col-span-2">
             <PersonSelect people={people} value={managerId} onChange={setManagerId} noneLabel="Reports directly to the founder" exclude={id ? [Number(id)] : []} />
@@ -146,8 +182,9 @@ export default function EmployeeForm() {
         </Section>
 
         <Section icon={<Landmark />} title={stipend ? "Stipend & bank" : "Salary & bank"} text={<>Admin-only fields. {stipend ? "Monthly stipend" : "Monthly salary"} becomes the default in payroll.{isSelf && <span className="flex items-center gap-1.5 mt-2 text-warn"><Lock className="size-3.5" /> You can't change your own salary.</span>}</>}>
-          <Field label={stipend ? "Monthly stipend" : "Monthly salary"}>
-            <MoneyInput value={values.monthly_salary} onChange={(v) => set("monthly_salary", v)} required placeholder="0" disabled={isSelf} />
+          <Field label={stipend ? "Monthly stipend" : payOptional ? "Monthly pay" : "Monthly salary"} optional={payOptional}
+            hint={payOptional ? "Leave blank if unpaid." : undefined}>
+            <MoneyInput value={values.monthly_salary} onChange={(v) => set("monthly_salary", v)} required={!payOptional} placeholder="0" disabled={isSelf} />
           </Field>
           <Field label="Effective date"><Input {...bind("salary_effective_date")} type="date" /></Field>
           <Field label="Bank name" optional><Input {...bind("bank_name")} /></Field>

@@ -144,6 +144,24 @@ class HostingTest(unittest.TestCase):
             self.ok(f.post("/api/auth/setup", form | {"setup_code": "open-sesame"}))
             self.assertFalse(self.ok(f.get("/api/auth/session"))["setup_code_required"])
 
+    def test_gzip_for_json(self):
+        import gzip
+        app = self.make_app("gzip")
+        f = Api(app)
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+                                           "password": "founderpass"}))
+        for i in range(15):
+            self.ok(f.post("/api/employees", form={"full_name": f"Person {i}", "monthly_salary": "1", "roles": '["Dev"]'}), 201)
+        plain = f.c.get("/api/employees?status=all")
+        self.assertIsNone(plain.headers.get("Content-Encoding"))           # client didn't ask for gzip
+        zipped = f.c.get("/api/employees?status=all", headers={"Accept-Encoding": "gzip, br"})
+        self.assertEqual(zipped.headers.get("Content-Encoding"), "gzip")
+        self.assertIn("Accept-Encoding", zipped.headers.get("Vary", ""))
+        self.assertEqual(gzip.decompress(zipped.data), plain.data)
+        self.assertLess(len(zipped.data), len(plain.data) / 3)
+        tiny = f.c.get("/api/auth/session", headers={"Accept-Encoding": "gzip"})  # under 1 KB: not worth it
+        self.assertIsNone(tiny.headers.get("Content-Encoding"))
+
     def test_database_url_accepts_supabase_formats(self):
         cases = {
             "postgresql://postgres.abc:pw@aws-0-ap-south-1.pooler.supabase.com:5432/postgres":

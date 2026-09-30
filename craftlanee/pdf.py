@@ -317,19 +317,31 @@ def kv_table(rows, st, label_w=58 * mm):
     return t
 
 
-def sign_off(settings, st, salutation="Yours sincerely,", name=None, title=None):
-    sig = _image(settings.signature_path, 42 * mm, 14 * mm)
+def _signer(sig_path, name, title, st):
+    sig = _image(sig_path, 42 * mm, 14 * mm)
+    if sig:
+        data, w, h = sig
+        parts = [Spacer(1, 2 * mm), Image(io.BytesIO(data), w, h, hAlign="LEFT")]
+    else:
+        parts = [Spacer(1, 13 * mm)]
+    return parts + [P(name, st["strong"]), P(title, st["small"])]
+
+
+def sign_off(settings, st, salutation="Yours sincerely,", name=None, title=None, hr=False):
+    """Company sign-off. With hr=True and an HR signatory configured, HR signs alongside the founder."""
     parts = [Spacer(1, 5 * mm)]
     if salutation:
         parts.append(P(salutation, st["plain"]))
     parts.append(P(f"For {settings.company_name or 'CraftLanee'}", st["strong"]))
-    if sig:
-        path, w, h = sig
-        parts += [Spacer(1, 2 * mm), Image(io.BytesIO(path), w, h, hAlign="LEFT")]
+    founder = _signer(settings.signature_path, name or settings.founder_name or "Authorised Signatory",
+                      title or settings.founder_designation or "Authorised Signatory", st)
+    if hr and (settings.hr_name or settings.hr_signature_path):
+        hr_col = _signer(settings.hr_signature_path, settings.hr_name or "Human Resources",
+                         settings.hr_designation or "HR Manager", st)
+        parts.append(_plain_table([[founder, hr_col]], [CONTENT_W / 2] * 2,
+                                  [("VALIGN", (0, 0), (-1, -1), "BOTTOM")]))
     else:
-        parts.append(Spacer(1, 13 * mm))
-    parts += [P(name or settings.founder_name or "Authorised Signatory", st["strong"]),
-              P(title or settings.founder_designation or "Authorised Signatory", st["small"])]
+        parts += founder
     return KeepTogether(parts)
 
 
@@ -446,7 +458,7 @@ def offer_letter(letter, settings, target):
               M(f"We are excited to have you join <b>{company}</b>. Please sign and return a copy of this letter "
                 f"by <b>{long_date(respond_by)}</b> to confirm your acceptance. Should you have any questions, "
                 "feel free to reach out to us.", st["body"]),
-              sign_off(settings, st), CondPageBreak(55 * mm),
+              sign_off(settings, st, hr=True), CondPageBreak(55 * mm),
               acceptance_box("ACCEPTANCE",
                              f"I, <b>{escape(name)}</b>, have read and understood the terms of this "
                              f"{'internship offer' if intern else 'offer'} and accept them. I confirm that I will "
@@ -469,7 +481,7 @@ def joining_letter(letter, settings, target):
             ("Date of joining", long_date(letter.joining_date)), ("Reporting to", letter.reporting_person),
             ("Work location", letter.work_location), ("Monthly salary", _salary(letter.salary))]
     story += [section("Employment Details", st, 1), kv_table([r for r in rows if r[1]], st),
-              sign_off(settings, st, "Warm regards,"), CondPageBreak(50 * mm),
+              sign_off(settings, st, "Warm regards,", hr=True), CondPageBreak(50 * mm),
               acceptance_box("ACKNOWLEDGEMENT",
                              f"I, <b>{escape(name)}</b>, acknowledge receipt of this joining letter and confirm "
                              "that the details above are correct.", st, name=name, signer="Employee")]
@@ -505,7 +517,7 @@ def relieving_letter(letter, settings, target):
     story += [section("Service Details", st, 1), kv_table([r for r in rows if r[1]], st),
               Spacer(1, 4 * mm),
               P("This letter is issued on request and may be used for any official purpose.", st["small"]),
-              sign_off(settings, st, "With best wishes,")]
+              sign_off(settings, st, "With best wishes,", hr=True)]
     _build(target, settings, letter.number, story, f"Relieving Letter {letter.number}")
 
 
@@ -644,7 +656,7 @@ def payslip(slip, row, emp, settings, target, leave_days=0):
         notes.append(f"Note: {row.notes}")
     if notes:
         story += [Spacer(1, 3 * mm)] + [P(x, st["small"]) for x in notes]
-    story += [sign_off(settings, st, salutation=""), Spacer(1, 7 * mm),
+    story += [sign_off(settings, st, salutation="", hr=True), Spacer(1, 7 * mm),
               P("This is a computer-generated payslip. For any discrepancy, please contact the company within "
                 "7 days of receipt.", st["tiny"])]
     _build(target, settings, slip.number, story, f"Payslip {slip.number}")

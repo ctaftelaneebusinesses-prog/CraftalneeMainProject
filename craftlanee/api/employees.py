@@ -3,11 +3,11 @@ import secrets
 from collections import Counter
 
 from flask import request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from ..extensions import db
-from ..models import (ALL_PERMISSIONS, EMPLOYMENT_TYPES, FIXED_TERM_TYPES, PERMISSIONS, ROLE_EMPLOYEE, Employee,
-                      EmployeeDocument, User)
+from ..models import (ALL_PERMISSIONS, EMPLOYMENT_TYPES, EXPERIENCE_LEVELS, FIXED_TERM_TYPES, PERMISSIONS,
+                      ROLE_EMPLOYEE, Employee, EmployeeDocument, User)
 from flask_login import current_user, login_required
 
 from ..security import founder_required, owner_required, permission_required
@@ -20,7 +20,9 @@ TEXT_FIELDS = {
     "full_name": 120, "phone": 30, "email": 160, "address": 1000,
     "department": 120, "employment_type": 30, "work_location": 120, "reporting_person": 120,
     "bank_name": 120, "bank_account_name": 120, "bank_account_number": 40, "bank_ifsc": 20,
+    "college": 160, "study_department": 120, "previous_company": 160,
 }
+RESUME_EXTS = {"pdf", "doc", "docx"}
 DATE_FIELDS = ("date_of_birth", "joining_date", "salary_effective_date", "end_date")
 
 
@@ -107,6 +109,14 @@ def _apply(emp, form, files):
     if salary < 0:
         errors.append("Monthly salary cannot be negative.")
     emp.monthly_salary = salary
+    level = str(form.get("experience_level") or "").lower()
+    emp.experience_level = level if level in EXPERIENCE_LEVELS else None
+    years = to_decimal(form.get("experience_years")) if emp.experience_level == "experienced" else None
+    if years is not None and not (0 <= years <= 60):
+        errors.append("Years of experience must be between 0 and 60.")
+    emp.experience_years = years or None
+    if emp.experience_level != "experienced":
+        emp.previous_company = None
     if not emp.full_name:
         errors.append("Full name is required.")
     photo = files.get("photo")
@@ -119,6 +129,16 @@ def _apply(emp, form, files):
             errors.append(str(exc))
     if form.get("remove_photo") in ("1", "true", True) and not (photo and photo.filename):
         emp._replaced_photo, emp.photo_path = emp.photo_path, None
+    resume = files.get("resume")
+    if resume and resume.filename and not errors:
+        try:
+            rel, original = save_upload(resume, "resumes", RESUME_EXTS)
+            emp._replaced_resume = emp.resume_path
+            emp.resume_path, emp.resume_name = rel, original
+        except ValueError as exc:
+            errors.append(f"Resume: {exc}")
+    if form.get("remove_resume") in ("1", "true", True) and not (resume and resume.filename):
+        emp._replaced_resume, emp.resume_path, emp.resume_name = emp.resume_path, None, None
     return errors
 
 
@@ -156,14 +176,15 @@ def employees_list():
                                  Employee.designation.ilike(like), Employee.department.ilike(like),
                                  Employee.email.ilike(like), Employee.phone.ilike(like)))
     rows = query.order_by(Employee.full_name).all()
-    counts = {"active": Employee.query.filter_by(status="active").count(),
-              "inactive": Employee.query.filter_by(status="inactive").count()}
+    per_status = dict(db.session.query(Employee.status, func.count(Employee.id)).group_by(Employee.status).all())
+    counts = {"active": per_status.get("active", 0), "inactive": per_status.get("inactive", 0)}
     counts["all"] = counts["active"] + counts["inactive"]
-    active = Employee.query.filter_by(status="active").all()
+    active = rows if status == "active" and not (q or etype or role) else Employee.query.filter_by(status="active").all()
     by_type = Counter(e.employment_type or "Full-time" for e in active)
     by_role = Counter(r for e in active for r in e.role_list)
-    return ok(employees=[S.employee_brief(e) for e in rows], counts=counts, next_code=next_emp_code(),
-              next_codes=next_emp_codes(),
+    codes = next_emp_codes()
+    return ok(employees=[S.employee_brief(e) for e in rows], counts=counts, next_code=codes["Full-time"],
+              next_codes=codes,
               by_type=[{"type": t, "count": by_type.get(t, 0)} for t in EMPLOYMENT_TYPES],
               by_role=[{"role": r, "count": c} for r, c in by_role.most_common()],
               multi_role=sum(1 for e in active if len(e.role_list) > 1))
@@ -207,6 +228,7 @@ def employees_update(emp_id):
         emp.user.name = emp.full_name
     db.session.commit()
     delete_file(getattr(emp, "_replaced_photo", None))
+    delete_file(getattr(emp, "_replaced_resume", None))
     return ok(employee=profile(emp))
 
 
@@ -233,7 +255,7 @@ def employees_delete(emp_id):
     guard_admin_target(emp)
     if clean(body(), "confirm_code").upper() != emp.emp_code.upper():
         fail("Type the Employee ID exactly to confirm deletion.")
-    paths = [emp.photo_path] + [d.file_path for d in emp.documents] \
+    paths = [emp.photo_path, emp.resume_path] + [d.file_path for d in emp.documents] \
         + [l.file_path for l in emp.offer_letters] + [l.file_path for l in emp.joining_letters] \
         + [l.file_path for l in emp.relieving_letters] \
         + [p.file_path for p in emp.payslips]

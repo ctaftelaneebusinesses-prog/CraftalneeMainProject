@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { FileSignature, Receipt, ShieldCheck, Sparkles, Users, Wallet } from "lucide-react";
 import { Ambient } from "@/components/layout/AppShell";
+import { useTheme } from "@/lib/theme";
 
 const FEATURES = [
   { icon: Users, label: "People" },
@@ -10,18 +11,21 @@ const FEATURES = [
   { icon: Receipt, label: "Payslips" },
 ];
 
+/** The CraftLanee wordmark straight on the background: dark lettering in light mode, light lettering in dark mode. */
+function Wordmark({ alt, className }: { alt: string; className: string }) {
+  const { theme } = useTheme();
+  return <img src={theme === "dark" ? "/brand/craftlanee-logo-light.png" : "/brand/craftlanee-logo.png"} alt={alt} className={className} />;
+}
+
 export function AuthLayout({ children, company }: { children: ReactNode; company?: string }) {
   return (
     <div className="relative min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
       <Ambient />
       {/* showcase */}
       <section className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden border-r border-white/[0.06]">
-        <div className="flex flex-col items-start gap-2">
-          {/* Wordmark on a white card (as in the sidebar) so its dark lettering reads in both themes. */}
-          <span className="rounded-2xl bg-[#fff] px-4 py-3 shadow-[0_10px_30px_-10px_rgba(124,92,255,0.55)]">
-            <img src="/brand/craftlanee-logo.png" alt={company ?? "CraftLanee"} className="h-9 w-auto" />
-          </span>
-          <div className="pl-1 text-[11px] uppercase tracking-[0.16em] text-fg-4">Company OS</div>
+        <div className="flex flex-col items-start gap-2.5">
+          <Wordmark alt={company ?? "CraftLanee"} className="h-10 w-auto" />
+          <div className="pl-[3px] text-[11px] uppercase tracking-[0.16em] text-fg-4">Company OS</div>
         </div>
 
         <div className="relative">
@@ -63,9 +67,7 @@ export function AuthLayout({ children, company }: { children: ReactNode; company
       {/* form */}
       <section className="relative flex items-center justify-center p-6 sm:p-12">
         <motion.div className="w-full max-w-[400px]" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
-          <span className="lg:hidden mb-8 inline-block rounded-2xl bg-[#fff] px-3.5 py-2.5 shadow-[0_10px_30px_-10px_rgba(124,92,255,0.55)]">
-            <img src="/brand/craftlanee-logo.png" alt={company ?? "CraftLanee"} className="h-7 w-auto" />
-          </span>
+          <Wordmark alt={company ?? "CraftLanee"} className="lg:hidden mb-8 h-8 w-auto" />
           {children}
         </motion.div>
       </section>

@@ -4,13 +4,13 @@ from decimal import Decimal
 
 from flask import request
 from flask_login import current_user
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from ..extensions import db
 from ..models import (EXPENSE_CATEGORIES, INCOME_STATUSES, PAYMENT_METHODS, AuditLog, Employee,
                       Expense, Income, Payroll)
 from ..security import can_view_document, founder_required, permission_required
-from ..services import expenses_by_category, finance_totals, headcount
+from ..services import expenses_by_category, finance_totals, headcount, monthly_totals
 from ..utils import (audit, clean, delete_file, inr, month_bounds, parse_date, period_range,
                      save_upload, to_decimal)
 from . import common as S
@@ -49,13 +49,14 @@ def _last_months(n=6):
 
 
 def trend(n=6):
+    months = _last_months(n)
+    totals = monthly_totals(month_bounds(months[0])[0], month_bounds(months[-1])[1])
     series = []
-    for month in _last_months(n):
-        s, e = month_bounds(month)
-        t = finance_totals(s, e)
+    for month in months:
+        income, expenses = totals.get((int(month[:4]), int(month[5:])), (Decimal(0), Decimal(0)))
         series.append({"month": month, "label": datetime.strptime(month, "%Y-%m").strftime("%b"),
-                       "income": S.money(t["income"]), "expenses": S.money(t["expenses"]),
-                       "balance": S.money(t["balance"])})
+                       "income": S.money(income), "expenses": S.money(expenses),
+                       "balance": S.money(income - expenses)})
     return series
 
 
@@ -75,22 +76,20 @@ def dashboard():
     drafts = [m for (m,) in db.session.query(Payroll.month).filter_by(status="draft")
               .distinct().order_by(Payroll.month.desc())]
     this_label, s, e = period_range("this_month")
-    departments = {}
-    for emp in Employee.query.filter_by(status="active"):
-        key = emp.department or "Unassigned"
-        departments[key] = departments.get(key, 0) + 1
-    recent = Employee.query.order_by(Employee.created_at.desc()).limit(5).all()
     from collections import Counter
     from ..models import EMPLOYMENT_TYPES, Leave, Task
-    active = Employee.query.filter_by(status="active").all()
+    can = current_user.can
+    active = Employee.query.filter_by(status="active").all()  # one read feeds departments, types and roles
+    departments = Counter(emp.department or "Unassigned" for emp in active)
     by_type = Counter(e.employment_type or "Full-time" for e in active)
     by_role = Counter(r for e in active for r in e.role_list)
+    recent = Employee.query.order_by(Employee.created_at.desc()).limit(5).all() if can("employees") else []
     today = date.today()
     on_leave = (Leave.query.join(Employee).filter(Leave.status == "approved", Employee.status == "active",
                                                   Leave.start_date <= today, Leave.end_date >= today).all())
-    task_counts = Counter(t.status for t in Task.query)
-    recent_done = Task.query.filter_by(status="done").order_by(Task.completed_at.desc()).limit(5).all()
-    can = current_user.can
+    task_counts = dict(db.session.query(Task.status, func.count(Task.id)).group_by(Task.status).all())
+    recent_done = (Task.query.filter_by(status="done").order_by(Task.completed_at.desc()).limit(5).all()
+                   if can("team") else [])
     people = {k: (S.money(v) if isinstance(v, Decimal) else v) for k, v in headcount().items()}
     if not (can("employees") or can("payroll")):
         people["monthly_payroll"] = None
@@ -102,8 +101,8 @@ def dashboard():
         this_month=(_totals(finance_totals(s, e)) | {"label": this_label}) if finance else None,
         trend=trend(6) if finance else [],
         categories=[{"category": c, "amount": S.money(a)} for c, a in expenses_by_category(s, e)] if finance else [],
-        departments=[{"name": k, "count": v} for k, v in sorted(departments.items(), key=lambda x: -x[1])],
-        recent_employees=[S.employee_brief(x) for x in recent] if can("employees") else [],
+        departments=[{"name": k, "count": v} for k, v in departments.most_common()],
+        recent_employees=[S.employee_brief(x) for x in recent],
         activity=[S.audit_entry(a) for a in AuditLog.query.order_by(AuditLog.created_at.desc()).limit(10)]
         if can("settings") else [],
         draft_months=drafts if can("payroll") else [],
@@ -114,7 +113,7 @@ def dashboard():
         pending_leaves=Leave.query.filter_by(status="pending").count() if can("leaves") else 0,
         tasks={"todo": task_counts.get("todo", 0), "in_progress": task_counts.get("in_progress", 0),
                "done": task_counts.get("done", 0)},
-        recent_done=[S.task(t) for t in recent_done] if can("team") else [],
+        recent_done=[S.task(t) for t in recent_done],
     )
 
 

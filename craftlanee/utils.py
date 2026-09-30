@@ -168,21 +168,28 @@ def next_doc_number(model, kind, year=None):
     return f"{prefix}{seq:04d}"
 
 
+def _next_codes(prefixes):
+    """{prefix: next code} for each prefix, from a single read of the existing IDs."""
+    from .models import Employee
+    highest = dict.fromkeys(prefixes, 0)
+    for (code,) in db.session.query(Employee.emp_code).filter(Employee.emp_code.like("CL-%")):
+        prefix, _, tail = code.rpartition("-")
+        if prefix in highest and tail.isdigit():
+            highest[prefix] = max(highest[prefix], int(tail))
+    return {p: f"{p}-{n + 1:04d}" for p, n in highest.items()}
+
+
 def next_emp_code(employment_type="Full-time"):
     """Next ID in this employment type's own series, e.g. CL-EMP-0003, CL-INT-0001, CL-FREE-0002."""
-    from .models import EMP_CODE_PREFIX, Employee
+    from .models import EMP_CODE_PREFIX
     prefix = EMP_CODE_PREFIX.get(employment_type, EMP_CODE_PREFIX["Full-time"])
-    seq = 0
-    for (code,) in db.session.query(Employee.emp_code).filter(Employee.emp_code.like(f"{prefix}-%")):
-        tail = code[len(prefix) + 1:]
-        if tail.isdigit():
-            seq = max(seq, int(tail))
-    return f"{prefix}-{seq + 1:04d}"
+    return _next_codes([prefix])[prefix]
 
 
 def next_emp_codes():
-    from .models import EMPLOYMENT_TYPES
-    return {t: next_emp_code(t) for t in EMPLOYMENT_TYPES}
+    from .models import EMP_CODE_PREFIX, EMPLOYMENT_TYPES
+    codes = _next_codes(set(EMP_CODE_PREFIX.values()))
+    return {t: codes[EMP_CODE_PREFIX[t]] for t in EMPLOYMENT_TYPES}
 
 
 # ---------------------------------------------------------------- storage

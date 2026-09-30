@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, BriefcaseBusiness, DoorOpen, Building2, CalendarDays, Copy, EyeOff, Eye, FileText, KeyRound, ListTodo,
-  Landmark, ListChecks, Mail, MapPin, Network, Pencil, Phone, Plus, Power, Receipt, Send, ShieldCheck, Trash2, Upload, UserPlus, UserRound, Wallet, X } from "lucide-react";
+import { Archive, ArchiveRestore, BookOpen, BriefcaseBusiness, DoorOpen, Building2, CalendarDays, Copy, EyeOff, Eye, FileText, KeyRound, ListTodo,
+  GraduationCap, Landmark, ListChecks, Mail, MapPin, Network, Pencil, Phone, Plus, Power, Receipt, Send, ShieldCheck, Trash2, Upload, UserPlus, UserRound, Wallet, X } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { cn, fmtDate, fmtDateTime, inr, monthLabel } from "@/lib/format";
 import type { Area, AreaInfo, EmployeeProfile as Profile, Leave, Task } from "@/lib/types";
@@ -139,6 +139,16 @@ export default function EmployeeProfile() {
               <Card>
                 <CardHeader icon={<BriefcaseBusiness />} title="Job" />
                 <Info rows={[[<Building2 />, "Department", e.department], [<MapPin />, "Work location", e.work_location], [<UserRound />, "Reports to", e.reporting_person], [<CalendarDays />, "Salary effective", fmtDate(e.salary_effective_date)]]} />
+              </Card>
+              <Card>
+                <CardHeader icon={e.college || e.study_department ? <GraduationCap /> : <FileText />} title={e.college || e.study_department ? "Education" : "Experience"} />
+                <Info rows={[
+                  ...(e.college || e.study_department
+                    ? [[<GraduationCap />, "College", e.college], [<BookOpen />, "Department / course", e.study_department]] as [ReactNode, string, ReactNode][]
+                    : [[<BriefcaseBusiness />, "Experience", e.experience_level === "experienced" ? `Experienced${e.experience_years ? ` · ${e.experience_years} yr${e.experience_years === 1 ? "" : "s"}` : ""}` : e.experience_level === "fresher" ? "Fresher" : null],
+                       ...(e.previous_company ? [[<Building2 />, "Previous company", e.previous_company]] : [])] as [ReactNode, string, ReactNode][]),
+                  [<FileText />, "Resume", e.resume_url ? <a href={e.resume_url} target="_blank" rel="noopener noreferrer" className="text-brand-300 hover:underline">{e.resume_name ?? "View resume"}</a> : null],
+                ]} />
               </Card>
               <Card>
                 <CardHeader icon={<Landmark />} title="Bank" />
