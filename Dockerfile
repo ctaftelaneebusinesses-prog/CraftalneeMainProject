@@ -15,6 +15,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     CRAFTLANEE_FRONTEND_DIST=/app/frontend/dist
+# Stored times, "today" on letters and payroll months are India time. POSIX form (UTC+5:30) works
+# without tzdata in the slim image.
+ENV TZ=IST-5:30
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
