@@ -74,7 +74,7 @@ export default function Employees() {
     const ok = await confirm({
       title: one ? `Delete ${targets[0].full_name}?` : `Delete ${targets.length} employees?`, danger: true, confirmText: "Delete forever",
       requireText: one ? targets[0].emp_code : "DELETE",
-      message: <>This permanently removes {one ? "their" : "each person's"} login, letters, payslips and uploads. Posted payroll expenses stay in Finance.
+      message: <>Are you sure you want to delete {one ? "this employee" : "these employees"}? This permanently removes {one ? "their" : "each person's"} login, letters, payslips and uploads. Posted payroll expenses stay in Finance.
         {!one && <span className="block mt-2 text-fg-3">{targets.map((t) => t.full_name).join(", ")}</span>}
         <span className="block mt-2 text-fg-3">Prefer <b>Deactivate</b> or a <b>relieving letter</b> if someone is simply leaving.</span></>,
     });

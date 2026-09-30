@@ -56,7 +56,7 @@ export default function EmployeeProfile() {
 
   const askDelete = async () => {
     const code = await confirm({ title: `Delete ${e.full_name}?`, danger: true, requireText: e.emp_code, confirmText: "Delete forever",
-      message: "This permanently removes the employee, their login, letters, payslips and uploads. Posted payroll expenses stay in Finance. Prefer Deactivate (or a relieving letter) if they are simply leaving." });
+      message: "Are you sure you want to delete this employee? This permanently removes the employee, their login, letters, payslips and uploads. Posted payroll expenses stay in Finance. Prefer Deactivate (or a relieving letter) if they are simply leaving." });
     if (code) remove.mutate(code);
   };
   const isSelf = user?.employee?.id === e.id;
@@ -299,6 +299,7 @@ function DocGroup({ title, icon, action, children, empty }: { title: string; ico
 function LoginCard({ e, onDone }: { e: Profile; onDone: (emp: Profile, tempPassword: string | null) => void }) {
   const [email, setEmail] = useState(e.login?.email ?? e.email ?? "");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const m = useMutation({
     mutationFn: (action: string) => api.post<{ employee: Profile; temp_password: string | null; message: string }>(`/employees/${e.id}/login`, { action, email, password }),
     onSuccess: (r) => { toast.success(r.message); setPassword(""); onDone(r.employee, r.temp_password); },
@@ -312,7 +313,12 @@ function LoginCard({ e, onDone }: { e: Profile; onDone: (emp: Profile, tempPassw
         {e.login?.last_login_at && <div className="text-[12.5px] text-fg-3">Last sign-in {fmtDateTime(e.login.last_login_at)}</div>}
         <Field label="Login email"><Input type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} /></Field>
         <Field label={e.login ? "New password" : "Password"} hint="Leave blank to generate a secure temporary password.">
-          <Input type="password" value={password} onChange={(ev) => setPassword(ev.target.value)} autoComplete="new-password" placeholder="••••••••" />
+          <div className="relative">
+            <Input type={showPw ? "text" : "password"} value={password} onChange={(ev) => setPassword(ev.target.value)} autoComplete="new-password" placeholder="••••••••" className="pr-11" />
+            <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-fg-4 hover:text-fg" aria-label={showPw ? "Hide password" : "Show password"}>
+              {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
         </Field>
         <div className="flex flex-wrap justify-end gap-2 pt-1">
           {e.login && (e.login.active

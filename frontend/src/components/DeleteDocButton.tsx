@@ -17,7 +17,7 @@ const ENDPOINT: Record<DeletableKind, (id: number) => Promise<unknown>> = {
   doc: (id) => api.post(`/employee-documents/${id}/delete`),
 };
 
-/** Trash button: confirms (type the number to be sure), deletes the record and its PDF, refreshes every list. */
+/** Trash button: asks "are you sure?", deletes the record and its PDF, refreshes every list. */
 export function DeleteDocButton({ kind, id, number, label = "document", onDeleted, full }: {
   kind: DeletableKind; id: number; number: string; label?: string; onDeleted?: () => void; full?: boolean;
 }) {
@@ -33,8 +33,8 @@ export function DeleteDocButton({ kind, id, number, label = "document", onDelete
   });
   const ask = async () => {
     if (await confirm({
-      title: `Delete ${number}?`, danger: true, confirmText: "Delete forever", requireText: kind === "doc" ? undefined : number,
-      message: `This permanently removes the ${label} and its PDF. Archive it instead if you only want it out of the way.`,
+      title: `Delete ${number}?`, danger: true, confirmText: "Delete",
+      message: `Are you sure you want to delete this ${label}? It can't be undone.`,
     })) del.mutate();
   };
   return full

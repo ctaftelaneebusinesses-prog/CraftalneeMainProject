@@ -73,7 +73,7 @@ export default function InvoiceView() {
             )}
             {i.status !== "paid" && (
               <Button className="w-full" variant="danger" icon={<Trash2 />} loading={del.isPending} onClick={async () => {
-                if (await confirm({ title: `Delete ${i.number}?`, message: "This removes the invoice and its PDF for good. Prefer Cancel to keep a record.", danger: true, confirmText: "Delete forever", requireText: i.number })) del.mutate();
+                if (await confirm({ title: `Delete ${i.number}?`, message: "Are you sure you want to delete this invoice? It can't be undone.", danger: true, confirmText: "Delete" })) del.mutate();
               }}>Delete</Button>
             )}
           </Card>
