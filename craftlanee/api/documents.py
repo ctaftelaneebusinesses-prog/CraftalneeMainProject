@@ -14,7 +14,7 @@ from ..models import (STIPEND_TYPES, Employee, EmployeeDocument, JoiningLetter, 
                       RelievingLetter)
 from ..richtext import sanitize_html
 from ..security import can_view_document, permission_required
-from ..utils import (audit, clean, delete_file, get_settings, month_label, new_rel_path, next_doc_number,
+from ..utils import (audit, cap_words, clean, delete_file, get_settings, month_label, new_rel_path, next_doc_number,
                      parse_date, store_pdf, to_decimal)
 from . import common as S
 from .common import bp, body, fail, fail_if, get_or_404, iso, ok
@@ -50,7 +50,7 @@ def _apply_offer(l, d):
     l.letter_date = parse_date(d.get("letter_date")) or date.today()
     l.candidate_name = clean(d, "candidate_name", 120)
     l.address = clean(d, "address", 1000) or None
-    l.designation = clean(d, "designation", 120) or None
+    l.designation = cap_words(clean(d, "designation", 120)) or None
     l.department = clean(d, "department", 120) or None
     l.joining_date = parse_date(d.get("joining_date"))
     l.salary = to_decimal(d.get("salary"))
@@ -68,7 +68,7 @@ def _apply_joining(l, d):
     l.letter_date = parse_date(d.get("letter_date")) or date.today()
     l.employee_name = clean(d, "employee_name", 120)
     l.emp_code = clean(d, "emp_code", 30) or None
-    l.designation = clean(d, "designation", 120) or None
+    l.designation = cap_words(clean(d, "designation", 120)) or None
     l.department = clean(d, "department", 120) or None
     l.joining_date = parse_date(d.get("joining_date"))
     l.salary = to_decimal(d.get("salary"))
@@ -83,7 +83,7 @@ def _apply_relieving(l, d):
     l.letter_date = parse_date(d.get("letter_date")) or date.today()
     l.employee_name = clean(d, "employee_name", 120)
     l.emp_code = clean(d, "emp_code", 30) or None
-    l.designation = clean(d, "designation", 200) or None
+    l.designation = cap_words(clean(d, "designation", 200)) or None
     l.department = clean(d, "department", 120) or None
     l.employment_type = clean(d, "employment_type", 30) or None
     l.joining_date = parse_date(d.get("joining_date"))

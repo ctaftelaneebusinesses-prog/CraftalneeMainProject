@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from . import storage
 from .extensions import db
-from .models import AuditLog, CompanySettings
+from .models import AuditLog, CompanySettings, cap_words  # noqa: F401 - re-exported
 
 IMAGE_EXTS = {"png", "jpg", "jpeg", "webp"}
 DOC_EXTS = IMAGE_EXTS | {"pdf", "doc", "docx", "xls", "xlsx", "txt"}

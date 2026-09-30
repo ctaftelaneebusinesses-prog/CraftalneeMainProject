@@ -364,38 +364,30 @@ def signature_boxes(left, right, st, settings):
 
 
 def acceptance_box(heading, text, st, name=None, signer="Candidate"):
-    """Tear-off style block the recipient signs and returns: statement, then separate signature,
-    date and place lines with room to write, and the signer's name printed under the signature."""
+    """Formal acceptance section the recipient signs and returns: a centred heading, the statement,
+    then labelled Name / Signature / Date / Place lines. Plain black on white, no colour."""
     f = fonts()
-    head = ParagraphStyle("ah", parent=st["tag"], textColor=ACCENT, fontSize=8, leading=11)
-    cap = ParagraphStyle("ac", parent=st["tiny"], fontSize=7, leading=9.5, textColor=FAINT)
-    who = ParagraphStyle("aw", parent=st["plain"], fontName=f["sans_b"], fontSize=9.5, leading=12.5, textColor=INK)
-    inner = CONTENT_W - 28          # box padding
-    gap = 9 * mm
-    sig_w = inner * 0.46
-    small_w = (inner - sig_w - 2 * gap) / 2
+    head = ParagraphStyle("ah", parent=st["plain"], fontName=f["sans_b"], fontSize=10.5, leading=14,
+                          textColor=INK, alignment=TA_CENTER)
+    lab = ParagraphStyle("al", parent=st["plain"], fontName=f["sans_b"], fontSize=9.5, leading=13, textColor=INK)
+    val = ParagraphStyle("av", parent=st["plain"], fontSize=9.5, leading=13, textColor=INK)
+    title = {"ACCEPTANCE": "ACCEPTANCE OF OFFER"}.get(heading.upper(), heading.upper())
+    label_w, gap = 22 * mm, 10 * mm
+    line_w = (CONTENT_W - 2 * label_w - gap) / 2
     fields = Table(
-        [["", "", "", "", ""],
-         [P(f"SIGNATURE OF {signer.upper()}", cap), "", P("DATE", cap), "", P("PLACE", cap)],
-         [P(name or "", who), "", "", "", ""]],
-        colWidths=[sig_w, gap, small_w, gap, small_w], rowHeights=[16 * mm, None, None])
+        [[P("Name:", lab), P(escape(name or ""), val), "", P("Date:", lab), ""],
+         [P("Signature:", lab), "", "", P("Place:", lab), ""]],
+        colWidths=[label_w, line_w, gap, label_w, line_w], rowHeights=[11 * mm, 13 * mm])
     fields.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (0, 0), 0.9, INK), ("LINEBELOW", (2, 0), (2, 0), 0.9, INK),
-        ("LINEBELOW", (4, 0), (4, 0), 0.9, INK),
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+        ("LINEBELOW", (1, 0), (1, 1), 0.6, INK), ("LINEBELOW", (4, 0), (4, 1), 0.6, INK),
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 1), (-1, 1), 3), ("TOPPADDING", (0, 2), (-1, 2), 1.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-    title = _plain_table([[P(heading.upper(), head), P("To be signed and returned", ParagraphStyle(
-        "ar", parent=cap, alignment=TA_RIGHT))]], [inner / 2] * 2, [("VALIGN", (0, 0), (-1, -1), "MIDDLE")])
-    rule = Table([[""]], colWidths=[inner], rowHeights=[0.1])
-    rule.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.5, LINE)]))
-    body = [title, Spacer(1, 2 * mm), rule, Spacer(1, 3.5 * mm), M(text, st["body"]), Spacer(1, 2 * mm), fields]
-    box = Table([[body]], colWidths=[CONTENT_W])
-    box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, LINE), ("LINEABOVE", (0, 0), (-1, 0), 2.4, ACCENT),
-                             ("LEFTPADDING", (0, 0), (-1, -1), 14), ("RIGHTPADDING", (0, 0), (-1, -1), 14),
-                             ("TOPPADDING", (0, 0), (-1, -1), 11), ("BOTTOMPADDING", (0, 0), (-1, -1), 14)]))
-    return KeepTogether([Spacer(1, 7 * mm), box])
+    rule = Table([[""]], colWidths=[CONTENT_W], rowHeights=[0.1])
+    rule.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.6, MUTED)]))
+    return KeepTogether([Spacer(1, 8 * mm), rule, Spacer(1, 5 * mm), M(f"<u>{title}</u>", head),
+                         Spacer(1, 4 * mm), M(text, st["body"]), Spacer(1, 1 * mm), fields])
 
 
 def _months_between(a, b):
@@ -460,8 +452,9 @@ def offer_letter(letter, settings, target):
               sign_off(settings, st, hr=True), CondPageBreak(55 * mm),
               acceptance_box("ACCEPTANCE",
                              f"I, <b>{escape(name)}</b>, have read and understood the terms of this "
-                             f"{'internship offer' if intern else 'offer'} and accept them. I confirm that I will "
-                             f"join on <b>{long_date(letter.joining_date)}</b>.", st, name=name,
+                             f"{'internship offer' if intern else 'offer'} and accept them."
+                             + (f" I confirm that I will join on <b>{long_date(letter.joining_date)}</b>."
+                                if letter.joining_date else ""), st, name=name,
                              signer="Intern" if intern else "Candidate")]
     _build(target, settings, letter.number, story, f"{subject} {letter.number}")
 

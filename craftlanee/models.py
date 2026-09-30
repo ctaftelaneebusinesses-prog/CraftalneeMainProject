@@ -5,6 +5,7 @@ Generated PDFs and uploads live under instance/storage and are only ever served
 through the authorised /files routes.
 """
 import json
+import re
 from datetime import datetime
 from decimal import Decimal
 
@@ -51,6 +52,12 @@ ALL_PERMISSIONS = list(PERMISSIONS)
 
 def now():
     return datetime.now()
+
+
+def cap_words(text):
+    """Capitalise the first letter of every word, leaving the rest as typed ("ui/ux designer" -> "Ui/Ux Designer",
+    "HR executive" -> "HR Executive")."""
+    return re.sub(r"(?<![A-Za-z'])[a-z]", lambda m: m.group().upper(), text) if text else text
 
 
 class TimestampMixin:
@@ -208,7 +215,7 @@ class Employee(TimestampMixin, db.Model):
     def set_roles(self, roles):
         clean = []
         for r in roles or []:
-            r = str(r).strip()[:60]
+            r = cap_words(str(r).strip()[:60])
             if r and r.lower() not in {c.lower() for c in clean}:
                 clean.append(r)
         self.roles = json.dumps(clean[:12])
