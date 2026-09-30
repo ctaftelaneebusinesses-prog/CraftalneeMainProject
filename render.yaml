@@ -1,0 +1,27 @@
+# Render Blueprint — New → Blueprint → pick this repo. Values marked "sync: false" are asked for
+# when you create it (paste them from Supabase); nothing secret is stored in this file.
+services:
+  - type: web
+    name: craftlanee
+    runtime: docker
+    plan: free            # sleeps after ~15 min idle; first visit afterwards takes ~30-60 s
+    region: singapore     # closest Render region to India; match your Supabase region if you can
+    healthCheckPath: /api/auth/session
+    autoDeploy: true
+    envVars:
+      - key: CRAFTLANEE_DATABASE_URL      # Supabase → Connect → Session pooler connection string
+        sync: false
+      - key: SUPABASE_URL                 # Supabase → Project Settings → API → Project URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY         # Supabase → Project Settings → API keys → service_role (secret!)
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: craftlanee
+      - key: CRAFTLANEE_SETUP_CODE        # any phrase only you know; needed once to create the founder account
+        sync: false
+      - key: CRAFTLANEE_SECRET_KEY        # signs login sessions; generated once by Render
+        generateValue: true
+      - key: CRAFTLANEE_SECURE_COOKIES
+        value: "1"
+      - key: CRAFTLANEE_BEHIND_PROXY
+        value: "1"

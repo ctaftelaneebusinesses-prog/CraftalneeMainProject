@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+frontend/node_modules/
+# Database, secret key, generated PDFs and uploads — back this folder up, never commit it.
+instance/
+# Built by 'npm run build' (and inside the Docker image when deploying).
+frontend/dist/
+frontend/*.tsbuildinfo
+.env
