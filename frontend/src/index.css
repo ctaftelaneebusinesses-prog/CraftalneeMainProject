@@ -283,9 +283,73 @@ body {
 /* smooth theme swap (View Transitions API when available) */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 
+/* ------------------------------------------------------------------ splash / loading screen
+   Plain CSS (not Tailwind) so index.html can show the identical screen before React loads.
+   Markup: .cl-splash > .cl-stage > (.cl-orbit, .cl-track, .cl-arc, .cl-plate > img) + .cl-caption */
+@keyframes cl-spin { to { transform: rotate(360deg); } }
+@keyframes cl-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes cl-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes cl-glow { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+@keyframes cl-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cl-dots { 0%, 20% { content: ""; } 40% { content: "."; } 60% { content: ".."; } 80%, 100% { content: "..."; } }
+
+.cl-splash {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 28px;
+  background:
+    radial-gradient(600px 380px at 50% 42%, rgb(124 92 255 / .16), transparent 70%),
+    radial-gradient(420px 300px at 62% 60%, rgb(255 122 69 / .08), transparent 70%),
+    var(--color-ink-950);
+  animation: cl-rise .45s ease-out both;
+}
+.cl-stage { position: relative; width: 136px; height: 136px; }
+.cl-stage > * { position: absolute; border-radius: 50%; }
+/* soft halo behind everything */
+.cl-stage::before {
+  content: ""; position: absolute; inset: -18px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(124 92 255 / .35), transparent);
+  filter: blur(14px); animation: cl-glow 2.4s ease-in-out infinite;
+}
+/* slow dashed orbit turning the other way */
+.cl-orbit { inset: -14px; border: 1px dashed rgb(var(--ov) / .14); animation: cl-spin-rev 14s linear infinite; }
+/* the faint full circle the arc runs on */
+.cl-track { inset: 0; border: 3px solid rgb(var(--ov) / .07); }
+/* the spinning gradient arc, cut into a ring with a mask; its bright head carries a glowing dot */
+.cl-arc {
+  inset: 0; animation: cl-spin 1.15s cubic-bezier(.55, .15, .45, .85) infinite;
+  background: conic-gradient(from 0deg, rgb(124 92 255 / 0) 0deg, rgb(124 92 255 / .9) 170deg, #b35cff 270deg, #ff7a45 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+}
+.cl-head {
+  inset: 0; animation: cl-spin 1.15s cubic-bezier(.55, .15, .45, .85) infinite;
+}
+.cl-head::after {
+  content: ""; position: absolute; top: -2.5px; left: calc(50% - 4.5px); width: 9px; height: 9px; border-radius: 50%;
+  background: #ff7a45; box-shadow: 0 0 10px 2px rgb(255 122 69 / .75), 0 0 22px 6px rgb(179 92 255 / .35);
+}
+/* the logo sits on a literal-white disc so its colours read in both themes */
+.cl-plate {
+  inset: 20px; display: grid; place-items: center; background: #fff;
+  box-shadow: 0 14px 40px -12px rgb(124 92 255 / .6), inset 0 0 0 1px rgb(20 24 45 / .06);
+  animation: cl-breathe 2.4s ease-in-out infinite;
+}
+.cl-plate img { width: 48px; height: 48px; object-fit: contain; }
+.cl-caption { display: grid; justify-items: center; gap: 8px; }
+.cl-caption strong {
+  font: 700 17px/1 "Plus Jakarta Sans", "Inter", system-ui, sans-serif; letter-spacing: -.01em; color: var(--color-fg);
+}
+.cl-caption span {
+  font: 500 11px/1 "Inter", system-ui, sans-serif; letter-spacing: .18em; text-transform: uppercase; color: var(--color-fg-3);
+  padding-left: 1.6em;  /* balances the space reserved for the animated dots, keeping the words centred */
+}
+.cl-caption span::after { content: ""; display: inline-block; width: 1.6em; text-align: left; animation: cl-dots 1.6s steps(1) infinite; }
+
 @media print {
   .ambient, aside, header { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  /* a loader still needs to show it's working: keep one slow, even turn and drop the rest */
+  .cl-splash .cl-arc, .cl-splash .cl-head { animation: cl-spin 2.4s linear infinite !important; }
+  .cl-splash .cl-orbit, .cl-splash .cl-plate, .cl-splash .cl-stage::before { animation: none !important; }
 }

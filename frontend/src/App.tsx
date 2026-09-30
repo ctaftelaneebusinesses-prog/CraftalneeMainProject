@@ -2,8 +2,9 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { can, useSession } from "@/lib/session";
 import type { Area } from "@/lib/types";
-import { AppShell, Ambient } from "@/components/layout/AppShell";
+import { AppShell } from "@/components/layout/AppShell";
 import { PageSkeleton } from "@/components/ui/core";
+import { Splash } from "@/components/Splash";
 import Login from "@/pages/auth/Login";
 import Setup from "@/pages/auth/Setup";
 
@@ -38,14 +39,6 @@ const PortalProfile = lazy(() => import("@/pages/portal/Profile"));
 const PortalDocuments = lazy(() => import("@/pages/portal/Documents"));
 const PortalPayslips = lazy(() => import("@/pages/portal/Payslips"));
 
-function Splash() {
-  return (
-    <div className="min-h-screen grid place-items-center">
-      <Ambient />
-      <div className="relative size-12 rounded-2xl animate-pulse" style={{ background: "var(--grad)" }} />
-    </div>
-  );
-}
 
 /** "founder" = admin console (founder or founder-granted admin), optionally one granted `area`;
  *  "employee" = needs an employee record. */

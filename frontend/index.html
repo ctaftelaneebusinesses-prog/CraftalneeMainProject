@@ -17,7 +17,19 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown instantly while the app's JavaScript loads; React replaces it. Same markup as src/components/Splash.tsx. -->
+      <div class="cl-splash" role="status" aria-label="CraftLanee — Loading your workspace">
+        <div class="cl-stage" aria-hidden="true">
+          <div class="cl-orbit"></div>
+          <div class="cl-track"></div>
+          <div class="cl-arc"></div>
+          <div class="cl-head"></div>
+          <div class="cl-plate"><img src="/brand/craftlanee-mark.png" alt="" /></div>
+        </div>
+        <div class="cl-caption"><strong>CraftLanee</strong><span>Loading your workspace</span></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
