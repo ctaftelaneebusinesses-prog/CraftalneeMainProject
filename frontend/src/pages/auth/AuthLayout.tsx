@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { FileSignature, Receipt, ShieldCheck, Sparkles, Users, Wallet } from "lucide-react";
 import { Ambient } from "@/components/layout/AppShell";
 import { useTheme } from "@/lib/theme";
+import { LoginShowcase } from "@/components/LoginShowcase";
 
 const FEATURES = [
   { icon: Users, label: "People" },
@@ -41,20 +42,9 @@ export function AuthLayout({ children, company }: { children: ReactNode; company
             </p>
           </motion.div>
 
-          {/* floating preview card */}
-          <motion.div initial={{ opacity: 0, y: 30, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: -2 }} transition={{ delay: 0.25, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-12 w-[380px] glass glow-border p-5 bg-ink-850/80">
-            <div className="flex items-center justify-between">
-              <span className="eyebrow">Current balance</span>
-              <span className="badge badge-good"><span className="dot" />Healthy</span>
-            </div>
-            <div className="mt-3 font-display text-[34px] font-bold tnum">₹4,23,300</div>
-            <div className="mt-4 flex items-end gap-1.5 h-14">
-              {[38, 52, 44, 68, 58, 82, 74, 96].map((h, i) => (
-                <motion.span key={i} className="flex-1 rounded-t-md" style={{ background: i === 7 ? "var(--grad)" : "rgba(255,255,255,0.08)" }}
-                  initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 0.5 + i * 0.06, duration: 0.6, ease: [0.16, 1, 0.3, 1] }} />
-              ))}
-            </div>
+          {/* the product at a glance: modules orbiting the mark + a live activity feed */}
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
+            <LoginShowcase />
           </motion.div>
         </div>
 

@@ -344,6 +344,17 @@ body {
 }
 .cl-caption span::after { content: ""; display: inline-block; width: 1.6em; text-align: left; animation: cl-dots 1.6s steps(1) infinite; }
 
+/* ------------------------------------------------------------------ login showcase orbit
+   A ring turns (.cl-orbit-ring); each chip on it turns back the same amount (.cl-orbit-upright) so icons stay level. */
+.cl-orbit-ring { position: absolute; border-radius: 50%; border: 1px dashed rgb(var(--ov) / .16); animation: cl-spin var(--spin, 40s) linear infinite; }
+.cl-orbit-ring.rev { animation-name: cl-spin-rev; }
+.cl-orbit-upright { animation: cl-spin-rev var(--spin, 40s) linear infinite; }
+.cl-orbit-ring.rev .cl-orbit-upright { animation-name: cl-spin; }
+.cl-orbit-comet {
+  position: absolute; top: -4px; left: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%;
+  background: #ff7a45; box-shadow: 0 0 10px 2px rgb(255 122 69 / .7), 0 0 20px 6px rgb(179 92 255 / .3);
+}
+
 @media print {
   .ambient, aside, header { display: none !important; }
 }
@@ -352,4 +363,5 @@ body {
   /* a loader still needs to show it's working: keep one slow, even turn and drop the rest */
   .cl-splash .cl-arc, .cl-splash .cl-head { animation: cl-spin 2.4s linear infinite !important; }
   .cl-splash .cl-orbit, .cl-splash .cl-plate, .cl-splash .cl-stage::before { animation: none !important; }
+  .cl-orbit-ring, .cl-orbit-upright { animation: none !important; }  /* decorative: hold still */
 }
