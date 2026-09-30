@@ -105,7 +105,7 @@ export default function Settings() {
         </Section>
         <Section icon={<PenLine />} title="HR signatory" text="Co-signs offer, joining and relieving letters and payslips next to the founder. Leave empty to have the founder sign alone.">
           <Field label="HR name" optional><Input {...bind("hr_name")} /></Field>
-          <Field label="Designation" optional><Input {...bind("hr_designation")} placeholder="HR Manager" /></Field>
+          <Field label="Designation" optional><Input {...bind("hr_designation")} placeholder="Manager" /></Field>
           {img("hr_signature", "HR signature", "Scan on white or transparent", s.hr_signature_url)}
         </Section>
         <Section icon={<Palette />} title="Branding" text="Transparent PNGs look best. A letterhead image, if set, replaces the logo header on PDFs.">

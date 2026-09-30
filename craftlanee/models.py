@@ -483,7 +483,7 @@ class CompanySettings(TimestampMixin, db.Model):
     signature_path = db.Column(db.String(255))
     # HR co-signs employee documents (offer/joining/relieving letters, payslips) next to the founder.
     hr_name = db.Column(db.String(120))
-    hr_designation = db.Column(db.String(120), default="HR Manager")
+    hr_designation = db.Column(db.String(120), default="Manager")
     hr_signature_path = db.Column(db.String(255))
     letterhead_path = db.Column(db.String(255))
     # Most logos already contain the company name (a wordmark). Only print the name as text too if asked.

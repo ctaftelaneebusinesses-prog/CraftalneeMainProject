@@ -204,10 +204,6 @@ class _Page:
         s = self.s
         c.saveState()
         c._cl_label = self.label
-        c.setFillColor(ACCENT)
-        c.rect(0, PAGE_H - 2.2 * mm, PAGE_W * 0.72, 2.2 * mm, stroke=0, fill=1)
-        c.setFillColor(ACCENT2)
-        c.rect(PAGE_W * 0.72, PAGE_H - 2.2 * mm, PAGE_W * 0.28, 2.2 * mm, stroke=0, fill=1)
 
         top = PAGE_H - 9 * mm
         letterhead = _image(s.letterhead_path, CONTENT_W, 24 * mm)
@@ -317,13 +313,15 @@ def kv_table(rows, st, label_w=58 * mm):
     return t
 
 
-def _signer(sig_path, name, title, st):
+def _signer(sig_path, name, title, st, heading=None):
     sig = _image(sig_path, 42 * mm, 14 * mm)
     if sig:
         data, w, h = sig
         parts = [Spacer(1, 2 * mm), Image(io.BytesIO(data), w, h, hAlign="LEFT")]
     else:
         parts = [Spacer(1, 13 * mm)]
+    if heading:
+        parts.append(P(heading, st["label"]))
     return parts + [P(name, st["strong"]), P(title, st["small"])]
 
 
@@ -333,15 +331,16 @@ def sign_off(settings, st, salutation="Yours sincerely,", name=None, title=None,
     if salutation:
         parts.append(P(salutation, st["plain"]))
     parts.append(P(f"For {settings.company_name or 'CraftLanee'}", st["strong"]))
-    founder = _signer(settings.signature_path, name or settings.founder_name or "Authorised Signatory",
-                      title or settings.founder_designation or "Authorised Signatory", st)
+    founder_name = name or settings.founder_name or "Authorised Signatory"
+    founder_title = title or settings.founder_designation or "Authorised Signatory"
     if hr and (settings.hr_name or settings.hr_signature_path):
+        founder = _signer(settings.signature_path, founder_name, founder_title, st, "Authorized Signatory")
         hr_col = _signer(settings.hr_signature_path, settings.hr_name or "Human Resources",
-                         settings.hr_designation or "HR Manager", st)
-        parts.append(_plain_table([[founder, hr_col]], [CONTENT_W / 2] * 2,
+                         settings.hr_designation or "Manager", st, "Authorized Signatory")
+        parts.append(_plain_table([[founder, hr_col]], [CONTENT_W - 50 * mm, 50 * mm],  # HR block flush right
                                   [("VALIGN", (0, 0), (-1, -1), "BOTTOM")]))
     else:
-        parts += founder
+        parts += _signer(settings.signature_path, founder_name, founder_title, st)
     return KeepTogether(parts)
 
 

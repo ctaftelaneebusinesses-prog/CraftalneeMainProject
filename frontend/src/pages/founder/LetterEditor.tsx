@@ -27,7 +27,7 @@ export default function LetterEditor() {
 
   const draftQ = useQuery({
     queryKey: ["letter-draft", kind, empId],
-    queryFn: () => api.get<{ draft: Draft; number_preview: string; employee: EmployeeBrief }>(`/letters/${kind}/draft?employee_id=${empId}`),
+    queryFn: () => api.get<{ draft: Draft; number_preview: string; number_previews: Record<string, string>; employee: EmployeeBrief }>(`/letters/${kind}/draft?employee_id=${empId}`),
     enabled: !editing && !!empId, staleTime: 0,
   });
   const letterQ = useQuery({
@@ -64,7 +64,7 @@ export default function LetterEditor() {
   }
   if (!d) return <PageSkeleton />;
   const emp = draftQ.data?.employee ?? letterQ.data?.employee;
-  const number = editing ? letterQ.data!.letter.number : draftQ.data!.number_preview;
+  const number = editing ? letterQ.data!.letter.number : (draftQ.data!.number_previews[d.letter_type as string] ?? draftQ.data!.number_preview);
   const v = (k: string) => (d[k] ?? "") as string;
   const set = (k: string, val: string | number | null) => setD((cur) => ({ ...(cur as Draft), [k]: val }));
   const bind = (k: string) => ({ value: v(k), onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => set(k, e.target.value) });
