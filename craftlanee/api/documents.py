@@ -143,7 +143,7 @@ def letters_preview(kind):
     d = body()
     letter = k["model"](employee_id=int(d.get("employee_id") or 0) or None)
     APPLY[kind](letter, d)
-    letter.number = clean(d, "number", 40) or next_doc_number(k["model"], _prefix(kind, letter.letter_type))
+    letter.number = clean(d, "number", 40) or next_doc_number(k["model"], _prefix(kind, getattr(letter, "letter_type", None)))
     return _pdf_response(k["builder"], letter, f"{letter.number}-preview.pdf")
 
 
@@ -168,7 +168,8 @@ def letters_draft(kind):
     k = _kind(kind)
     emp = get_or_404(Employee, request.args.get("employee_id", type=int) or 0, "Employee")
     draft = _draft(kind, emp)
-    previews = {t: next_doc_number(k["model"], _prefix(kind, t)) for t in ("employment", "internship")}         if kind == "offer" else {}
+    previews = ({t: next_doc_number(k["model"], _prefix(kind, t)) for t in ("employment", "internship")}
+                if kind == "offer" else {})
     return ok(draft=draft, number_preview=next_doc_number(k["model"], _prefix(kind, draft.get("letter_type"))),
               number_previews=previews,
               employee=S.employee_brief(emp))
@@ -182,7 +183,7 @@ def letters_create(kind):
     emp = get_or_404(Employee, int(d.get("employee_id") or 0), "Employee")
     letter = k["model"](employee_id=emp.id)
     fail_if(APPLY[kind](letter, d))
-    letter.number = next_doc_number(k["model"], _prefix(kind, letter.letter_type))
+    letter.number = next_doc_number(k["model"], _prefix(kind, getattr(letter, "letter_type", None)))
     db.session.add(letter)
     db.session.flush()
     _render(letter, k["builder"], k["folder"])

@@ -1,5 +1,5 @@
 import { Banknote, BriefcaseBusiness, CalendarDays, DoorOpen, FileSignature, FileText, FolderOpen, Handshake, LayoutDashboard,
-  ListTodo, Megaphone, Network, Receipt, ReceiptText, Scale, Send, Settings, TrendingDown, TrendingUp, User, UserPlus, Users, Wallet,
+  ListTodo, Megaphone, Network, PhoneCall, Receipt, ReceiptText, Scale, Send, Settings, TrendingDown, TrendingUp, User, UserPlus, Users, Wallet,
   type LucideIcon } from "lucide-react";
 import type { Area, NavCounts, User as SessionUser } from "@/lib/types";
 import { can } from "@/lib/session";
@@ -35,6 +35,9 @@ const ADMIN_NAV: NavGroup[] = [
     { to: "/finance/income", label: "Income", icon: TrendingUp, area: "finance" },
     { to: "/finance/expenses", label: "Expenses", icon: TrendingDown, area: "finance" },
     { to: "/finance/invoices", label: "Invoices", icon: ReceiptText, area: "finance" },
+  ] },
+  { label: "Clients", items: [
+    { to: "/followups", label: "Follow-ups", icon: PhoneCall, badge: "followups_due", area: "followups" },
   ] },
 ];
 
@@ -86,6 +89,7 @@ export const QUICK_ACTIONS: { to: string; label: string; icon: LucideIcon; area?
   { to: "/letters/joining/new", label: "Create joining letter", icon: FileSignature, area: "documents" },
   { to: "/letters/relieving/new", label: "Create relieving letter", icon: DoorOpen, area: "documents" },
   { to: "/mous/new", label: "Create MOU", icon: Handshake, area: "documents" },
+  { to: "/followups?new=1", label: "Add client follow-up", icon: PhoneCall, area: "followups" },
   { to: "/finance/invoices/new", label: "Create invoice", icon: ReceiptText, area: "finance" },
   { to: "/finance/income?new=1", label: "Record income", icon: TrendingUp, area: "finance" },
   { to: "/finance/expenses?new=1", label: "Record expense", icon: Banknote, area: "finance" },

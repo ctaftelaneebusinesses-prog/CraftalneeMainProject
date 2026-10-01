@@ -46,7 +46,7 @@ export interface EmployeeFull extends EmployeeBrief {
 }
 
 /** Console areas the founder can grant (mirrors PERMISSIONS in craftlanee/models.py). */
-export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements";
+export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements" | "followups";
 export interface AreaInfo { key: Area; label: string; description: string }
 
 export interface LoginInfo { email: string; active: boolean; is_admin: boolean; permissions: Area[]; last_login_at: string | null }
@@ -353,7 +353,7 @@ export interface TaskDetail extends Task {
 }
 
 export interface OrgNode extends EmployeeBrief { open_tasks: number; on_leave: boolean }
-export interface NavCounts { my_open_tasks: number; pending_leaves: number; assigned_open: number; my_pending_leaves: number; can_assign: boolean; unread_announcements: number }
+export interface NavCounts { my_open_tasks: number; pending_leaves: number; assigned_open: number; my_pending_leaves: number; can_assign: boolean; unread_announcements: number; followups_due: number }
 
 export type InvoiceStatus = "unpaid" | "paid" | "cancelled";
 export interface InvoiceLine { description: string; qty: number; rate: number; amount: number }
@@ -401,3 +401,31 @@ export interface Announcement {
   reach?: number;   // managers only: how many active people it reaches
   seen?: number;    // managers only: how many of them have opened it
 }
+
+// Client / lead follow-ups (craftlanee/api/followups.py)
+export type LeadStatus = "new" | "contacted" | "in_talks" | "proposal" | "won" | "lost";
+export type LeadDue = "overdue" | "today" | "upcoming" | "none" | "closed";
+export interface LeadActivity { id: number; kind: string; body: string; author_name: string | null; created_at: string }
+export interface Lead {
+  id: number;
+  code: string;
+  name: string;
+  contact_person: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
+  interest: string | null;
+  est_value: number | null;
+  status: LeadStatus;
+  next_followup: string | null;
+  due: LeadDue;
+  notes: string | null;
+  closed_at: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+  activity_count: number;
+  last_activity: LeadActivity | null;
+  activities?: LeadActivity[];   // only on the single-lead endpoints
+}
+export interface FollowupCounts { overdue: number; today: number; week: number; open: number; no_date: number; pipeline: number; won: number; lost: number }

@@ -27,6 +27,7 @@ const ExpensesPage = lazy(() => import("@/pages/founder/Expenses"));
 const Invoices = lazy(() => import("@/pages/founder/Invoices"));
 const InvoiceEditor = lazy(() => import("@/pages/founder/InvoiceEditor"));
 const InvoiceView = lazy(() => import("@/pages/founder/InvoiceView"));
+const Followups = lazy(() => import("@/pages/founder/Followups"));
 const Settings = lazy(() => import("@/pages/founder/Settings"));
 const AuditLog = lazy(() => import("@/pages/founder/AuditLog"));
 const Account = lazy(() => import("@/pages/Account"));
@@ -101,6 +102,7 @@ export default function App() {
           <Route path="/finance/invoices/new" element={founder(<InvoiceEditor />, "finance")} />
           <Route path="/finance/invoices/:id" element={founder(<InvoiceView />, "finance")} />
           <Route path="/finance/invoices/:id/edit" element={founder(<InvoiceEditor />, "finance")} />
+          <Route path="/followups" element={founder(<Followups />, "followups")} />
           <Route path="/settings" element={founder(<Settings />, "settings")} />
           <Route path="/settings/audit" element={founder(<AuditLog />, "settings")} />
           {/* employee */}

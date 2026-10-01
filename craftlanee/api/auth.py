@@ -10,7 +10,7 @@ from ..extensions import db
 from ..models import ROLE_FOUNDER, User, now
 from ..security import csrf_token
 from ..utils import audit, clean, get_settings
-from .common import bp, company, employee_brief, fail, fail_if, ok
+from .common import bp, company, employee_brief, fail, fail_if, iso, ok
 
 # In-memory throttle: 8 failed attempts per email+IP within 10 minutes.
 _FAILS = defaultdict(list)
@@ -129,3 +129,64 @@ def change_password():
     current_user.set_password(new)
     db.session.commit()
     return ok(message="Password updated.")
+
+
+# ------------------------------------------------------------------ extra founder logins
+# Every founder account has full access. Only a founder can see, add or remove them.
+
+def _owner_only():
+    if not current_user.is_founder:
+        fail("Only the founder can manage admin logins.", 403)
+
+
+def _admin_row(u):
+    return {"id": u.id, "name": u.name, "email": u.email, "active": u.active,
+            "last_login_at": iso(u.last_login_at), "created_at": iso(u.created_at), "is_me": u.id == current_user.id}
+
+
+@bp.get("/auth/admins")
+@login_required
+def admins_list():
+    _owner_only()
+    rows = User.query.filter_by(role=ROLE_FOUNDER).order_by(User.created_at).all()
+    return ok(admins=[_admin_row(u) for u in rows])
+
+
+@bp.post("/auth/admins")
+@login_required
+def admins_create():
+    _owner_only()
+    data = request.get_json(silent=True) or {}
+    name, email = clean(data, "name", 120), clean(data, "email", 160).lower()
+    password = str(data.get("password") or "")
+    errors = []
+    if not name or "@" not in email:
+        errors.append("Please enter a name and a valid email.")
+    elif User.query.filter_by(email=email).first():
+        errors.append("That email already has a login.")
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters.")
+    fail_if(errors)
+    user = User(name=name, email=email, role=ROLE_FOUNDER)
+    user.set_password(password)
+    db.session.add(user)
+    audit(f"added admin login {email}", "settings")
+    db.session.commit()
+    return ok(admin=_admin_row(user), message="Admin login created.")
+
+
+@bp.delete("/auth/admins/<int:user_id>")
+@login_required
+def admins_delete(user_id):
+    _owner_only()
+    user = db.session.get(User, user_id)
+    if not user or user.role != ROLE_FOUNDER:
+        fail("Admin login not found.", 404)
+    if user.id == current_user.id:
+        fail("You can't remove the login you're signed in with.")
+    if User.query.filter_by(role=ROLE_FOUNDER).count() <= 1:
+        fail("At least one admin login must remain.")
+    audit(f"removed admin login {user.email}", "settings")
+    db.session.delete(user)
+    db.session.commit()
+    return ok(message="Admin login removed.")

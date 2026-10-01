@@ -16,6 +16,7 @@ from ..utils import (audit, clean, delete_file, inr, month_bounds, parse_date, p
 from . import common as S
 from .common import bp, body, fail, fail_if, get_or_404, iso, ok
 from .documents import collect
+from .followups import counts as followup_counts, due_soon as followups_due
 
 
 def _totals(t):
@@ -114,6 +115,7 @@ def dashboard():
         tasks={"todo": task_counts.get("todo", 0), "in_progress": task_counts.get("in_progress", 0),
                "done": task_counts.get("done", 0)},
         recent_done=[S.task(t) for t in recent_done],
+        followups=(followup_counts() | {"due": followups_due()}) if can("followups") else None,
     )
 
 

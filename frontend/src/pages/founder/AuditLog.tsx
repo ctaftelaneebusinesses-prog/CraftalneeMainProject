@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Activity, ChevronLeft, ChevronRight, FileText, Settings2, TrendingUp, Users, Wallet } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, FileText, PhoneCall, Settings2, TrendingUp, Users, Wallet } from "lucide-react";
 import { api, qs } from "@/lib/api";
 import { capitalize, fmtDate } from "@/lib/format";
 import type { AuditEntry } from "@/lib/types";
 import { Button, Card, EmptyState, PageHeader, Segmented, Skeleton } from "@/components/ui/core";
 
-const ICONS: Record<string, typeof Activity> = { employee: Users, document: FileText, payroll: Wallet, finance: TrendingUp, settings: Settings2 };
-type Cat = "" | "employee" | "document" | "payroll" | "finance" | "settings";
+const ICONS: Record<string, typeof Activity> = { employee: Users, document: FileText, payroll: Wallet, finance: TrendingUp, followup: PhoneCall, settings: Settings2 };
+type Cat = "" | "employee" | "document" | "payroll" | "finance" | "followup" | "settings";
 
 export default function AuditLog() {
   const [category, setCategory] = useState<Cat>("");
@@ -26,7 +26,7 @@ export default function AuditLog() {
       <div className="mb-5">
         <Segmented layoutId="audit-cat" value={category} onChange={(c) => { setCategory(c); setPage(1); }} options={[
           { value: "", label: "All" }, { value: "employee", label: "Employees" }, { value: "document", label: "Documents" },
-          { value: "payroll", label: "Payroll" }, { value: "finance", label: "Finance" }, { value: "settings", label: "Settings" },
+          { value: "payroll", label: "Payroll" }, { value: "finance", label: "Finance" }, { value: "followup", label: "Follow-ups" }, { value: "settings", label: "Settings" },
         ]} />
       </div>
       <Card className="p-6 sm:p-8">

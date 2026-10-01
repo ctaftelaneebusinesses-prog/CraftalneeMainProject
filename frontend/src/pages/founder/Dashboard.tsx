@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { CalendarDays, CheckCircle2, Layers, ListTodo, Plane } from "lucide-react";
+import { CalendarDays, CheckCircle2, Layers, ListTodo, PhoneCall, Plane } from "lucide-react";
 import { Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, BriefcaseBusiness, FileText, Handshake,
   Plus, Send, Settings2, Sparkles, TrendingDown, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, greeting, inr, monthLabel, relative } from "@/lib/format";
 import { can, useSession } from "@/lib/session";
-import type { AuditEntry, CategoryAmount, EmployeeBrief, Leave, Task, Totals, TrendPoint } from "@/lib/types";
+import type { AuditEntry, CategoryAmount, EmployeeBrief, FollowupCounts, Lead, Leave, Task, Totals, TrendPoint } from "@/lib/types";
+import { DUE_TONE, dueText } from "@/lib/followups";
 import { EMPLOYMENT_META } from "@/components/EmploymentTypePicker";
 import { AnimatedNumber, Avatar, Button, Card, CardHeader, EmptyState, PageSkeleton, Stagger, StaggerItem } from "@/components/ui/core";
 import { CATEGORY_COLORS, Donut, Sparkline, TrendChart } from "@/components/charts";
@@ -30,6 +31,7 @@ interface DashboardData {
   pending_leaves: number;
   tasks: { todo: number; in_progress: number; done: number };
   recent_done: Task[];
+  followups: (FollowupCounts & { due: Lead[] }) | null;
 }
 
 const ACTIVITY_ICON: Record<string, typeof Activity> = { employee: Users, document: FileText, payroll: Wallet, finance: TrendingUp, settings: Settings2, leave: CalendarDays, task: ListTodo };
@@ -68,6 +70,29 @@ export default function Dashboard() {
             <div className="text-[13px] text-fg-3">Finalise it so salaries are posted to expenses and payslips are generated.</div>
           </div>
           <Button size="sm" to={`/payroll/${data.draft_months[0]}`}>Review payroll <ArrowRight /></Button>
+        </motion.div>
+      )}
+
+      {data.followups && data.followups.due.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-brand-400/25 bg-gradient-to-r from-brand-500/[0.1] to-transparent px-5 py-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="grid place-items-center size-9 rounded-xl bg-brand-500/15 text-brand-300"><PhoneCall className="size-4" /></span>
+            <div className="flex-1 min-w-[200px]">
+              <div className="font-medium">
+                {[data.followups.overdue && `${data.followups.overdue} overdue`, data.followups.today && `${data.followups.today} due today`].filter(Boolean).join(" · ")} client follow-up{data.followups.overdue + data.followups.today === 1 ? "" : "s"}
+              </div>
+              <div className="text-[13px] text-fg-3">Call them back and log what was said.</div>
+            </div>
+            <Button size="sm" to={`/followups?due=${data.followups.overdue ? "overdue" : "today"}`}>Open follow-ups <ArrowRight /></Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
+            {data.followups.due.map((l) => (
+              <Link key={l.id} to="/followups" className="inline-flex items-center gap-2 h-7 rounded-lg border border-white/[0.08] px-2.5 text-[12.5px] hover:border-white/20 transition-colors">
+                <span className="font-medium text-fg">{l.name}</span><span className={DUE_TONE[l.due]}>{dueText(l)}</span>
+              </Link>
+            ))}
+          </div>
         </motion.div>
       )}
 

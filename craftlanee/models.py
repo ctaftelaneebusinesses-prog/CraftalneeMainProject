@@ -35,6 +35,10 @@ EXPENSE_CATEGORIES = ["Salary", "Server/Hosting", "Software", "Office", "Travel"
 PAYMENT_METHODS = ["Bank Transfer", "UPI", "Cash", "Card", "Cheque", "Other"]
 INCOME_STATUSES = ["Received", "Pending", "Partially Received"]
 INVOICE_STATUSES = ["unpaid", "paid", "cancelled"]
+LEAD_STATUSES = ["new", "contacted", "in_talks", "proposal", "won", "lost"]
+LEAD_CLOSED = {"won", "lost"}                                          # no further follow-up needed
+LEAD_SOURCES = ["Referral", "Website", "Social media", "Cold call", "Event", "Existing client", "Other"]
+LEAD_ACTIVITY_KINDS = ["Call", "Meeting", "Email", "WhatsApp", "Note"]
 
 # Areas of the admin console the founder can grant to an employee, one by one.
 PERMISSIONS = {
@@ -45,6 +49,7 @@ PERMISSIONS = {
     "leaves": ("Leaves & holidays", "Approve or reject leave, add leave for others, manage holidays and imports"),
     "team": ("Team & tasks", "Rearrange the team tree, assign tasks to anyone and see every task"),
     "announcements": ("Announcements", "Post announcements with links and photos to everyone or chosen people"),
+    "followups": ("Client follow-ups", "Clients and leads, their status, next follow-up dates and call / meeting notes"),
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
 ALL_PERMISSIONS = list(PERMISSIONS)
@@ -667,3 +672,45 @@ class RelievingLetter(TimestampMixin, db.Model):
     archived = db.Column(db.Boolean, default=False, nullable=False)
 
     employee = db.relationship("Employee", back_populates="relieving_letters", lazy="selectin")
+
+
+class Lead(TimestampMixin, db.Model):
+    """A client or prospect the founder is following up with."""
+    __tablename__ = "leads"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False)          # client / company
+    contact_person = db.Column(db.String(120))
+    phone = db.Column(db.String(40))
+    email = db.Column(db.String(160))
+    source = db.Column(db.String(40))
+    interest = db.Column(db.String(200))                       # what they want: website, app, training…
+    est_value = db.Column(Money)
+    status = db.Column(db.String(20), default="new", nullable=False, index=True)
+    next_followup = db.Column(db.Date, index=True)
+    notes = db.Column(db.Text)
+    closed_at = db.Column(db.DateTime)
+    created_by_name = db.Column(db.String(120))
+
+    activities = db.relationship("LeadActivity", back_populates="lead", cascade="all, delete-orphan", lazy="selectin",
+                                 order_by="LeadActivity.created_at.desc()")
+
+    @property
+    def code(self):
+        return f"LEAD-{self.id:04d}" if self.id else ""
+
+    @property
+    def is_open(self):
+        return self.status not in LEAD_CLOSED
+
+
+class LeadActivity(TimestampMixin, db.Model):
+    """One logged follow-up on a lead: a call, meeting, email, message or plain note."""
+    __tablename__ = "lead_activities"
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = db.Column(db.String(20), default="Note", nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    author_name = db.Column(db.String(120))
+
+    lead = db.relationship("Lead", back_populates="activities")
