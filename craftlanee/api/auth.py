@@ -132,11 +132,11 @@ def change_password():
 
 
 # ------------------------------------------------------------------ extra founder logins
-# Every founder account has full access. Only a founder can see, add or remove them.
+# Every founder account has full access. Only the main founder (User.is_primary) can see, add or remove them.
 
 def _owner_only():
-    if not current_user.is_founder:
-        fail("Only the founder can manage admin logins.", 403)
+    if not current_user.is_primary:
+        fail("You don't have permission to do that.", 403)
 
 
 def _admin_row(u):

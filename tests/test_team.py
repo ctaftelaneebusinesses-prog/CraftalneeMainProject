@@ -43,7 +43,7 @@ class TeamTest(unittest.TestCase):
 
     def test_everything(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         # --- multiple roles + new employment types
         b = self.employee(f, "Bala CTO", roles='["CEO", "Full Stack Developer", "Project Manager", "HR"]')

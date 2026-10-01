@@ -56,11 +56,11 @@ def can_view_document(kind):
 
 
 def owner_required(view):
-    """Founder only — e.g. granting or revoking admin access."""
+    """Main founder only (User.is_primary) — granting or revoking admin access."""
     @wraps(view)
     @login_required
     def wrapper(*args, **kwargs):
-        if not current_user.is_founder:
+        if not current_user.is_primary:
             abort(403)
         return view(*args, **kwargs)
     return wrapper

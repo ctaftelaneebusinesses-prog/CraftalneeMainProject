@@ -221,7 +221,7 @@ export default function EmployeeProfile() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <LoginCard e={e} onDone={(emp, pw) => { refresh(emp); if (pw) setTempPw({ email: emp.login!.email, password: pw }); }} />
-                {user?.is_owner && <AdminAccessCard e={e} onDone={refresh} />}
+                {user?.is_primary && <AdminAccessCard e={e} onDone={refresh} />}
               </div>
               <Card>
                 <CardHeader icon={<Power />} title="Manage employee" subtitle="Deactivation keeps records; deletion removes them." />

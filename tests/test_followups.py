@@ -36,7 +36,7 @@ class FollowupsTest(unittest.TestCase):
 
     def test_followups(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         today = date.today()
         iso = lambda d: d.isoformat()  # noqa: E731

@@ -30,25 +30,36 @@ class AdminLoginsTest(unittest.TestCase):
 
     def test_second_admin_login(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         self.ok(f.post("/api/auth/admins", {"name": "Arjun", "email": "A2@c.in", "password": "secondpass"}))
         self.ok(f.post("/api/auth/admins", {"name": "X", "email": "a2@c.in", "password": "secondpass"}), 400)
         admins = self.ok(f.get("/api/auth/admins"))["admins"]
-        self.assertEqual([a["email"] for a in admins], ["a@c.in", "a2@c.in"])
+        self.assertEqual([a["email"] for a in admins], ["craftlanee@gmail.com", "a2@c.in"])
 
-        # The second email signs in with full founder access.
+        # The second email signs in with full founder access...
         s = Api(self.app)
         me = self.ok(s.post("/api/auth/login", {"email": "a2@c.in", "password": "secondpass"}))["user"]
         self.assertTrue(me["is_owner"])
+        self.assertFalse(me["is_primary"])
         self.ok(s.get("/api/settings"))
 
-        # Can't remove yourself; can remove the other; the last one always stays.
-        first_id = next(a["id"] for a in admins if a["email"] == "a@c.in")
+        # ...but only the main founder adds or removes admins, or grants admin access to employees.
+        first_id = next(a["id"] for a in admins if a["email"] == "craftlanee@gmail.com")
         second_id = next(a["id"] for a in admins if a["email"] == "a2@c.in")
-        self.ok(s.delete(f"/api/auth/admins/{second_id}"), 400)
-        self.ok(s.delete(f"/api/auth/admins/{first_id}"))
-        self.ok(s.post("/api/auth/login", {"email": "a2@c.in", "password": "secondpass"}))
+        self.ok(s.get("/api/auth/admins"), 403)
+        self.ok(s.post("/api/auth/admins", {"name": "Y", "email": "a3@c.in", "password": "thirdpass1"}), 403)
+        self.ok(s.delete(f"/api/auth/admins/{first_id}"), 403)
+        emp = self.ok(f.post("/api/employees", form={"full_name": "Sam", "monthly_salary": "1", "roles": '["Staff"]'}), 201)["employee"]
+        self.ok(f.post(f"/api/employees/{emp['id']}/login", {"email": "sam@c.in", "password": "password123"}))
+        self.ok(s.get("/api/permissions"), 403)
+        self.ok(s.post(f"/api/employees/{emp['id']}/admin", {"permissions": ["leaves"]}), 403)
+        self.ok(f.post(f"/api/employees/{emp['id']}/admin", {"permissions": ["leaves"]}))
+
+        # The main founder can't remove itself, but can remove the other login.
+        self.ok(f.delete(f"/api/auth/admins/{first_id}"), 400)
+        self.ok(f.delete(f"/api/auth/admins/{second_id}"))
+        self.ok(s.post("/api/auth/login", {"email": "a2@c.in", "password": "secondpass"}), 401)
 
 
 if __name__ == "__main__":

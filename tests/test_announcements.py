@@ -39,7 +39,7 @@ class AnnouncementTest(unittest.TestCase):
 
     def test_announcements(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         a, ac = self.person(f, "Anu", "anu@c.in")
         b, bc = self.person(f, "Bala", "bala@c.in")

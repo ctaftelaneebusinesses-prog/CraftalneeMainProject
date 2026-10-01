@@ -38,7 +38,7 @@ class RemindersTest(unittest.TestCase):
 
     def test_reminders(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         t = datetime.now()
         past, future = t - timedelta(minutes=5), t + timedelta(hours=1)
@@ -69,7 +69,7 @@ class RemindersTest(unittest.TestCase):
         self.assertTrue(st["ready"] and st["password_set"])
         self.assertEqual((st["smtp_from"], st["app_url"]), ("bot@c.in", "http://crm.local"))
         self.assertNotIn("smtp_password", st)
-        self.assertEqual([r["email"] for r in st["recipients"]], ["a@c.in"])
+        self.assertEqual([r["email"] for r in st["recipients"]], ["craftlanee@gmail.com"])
         # saving without a password keeps the stored one
         st = self.ok(f.put("/api/followups/email-settings", st | {"smtp_password": ""}))["settings"]
         self.assertTrue(st["password_set"])
@@ -77,7 +77,7 @@ class RemindersTest(unittest.TestCase):
         with self.app.app_context(), mock.patch.object(reminders, "send_mail") as send:
             self.assertEqual(reminders.send_due_emails(), 1)
             (_, to, subject, text, html), _ = send.call_args
-            self.assertEqual(to, ["a@c.in"])
+            self.assertEqual(to, ["craftlanee@gmail.com"])
             self.assertIn("Due now", subject)
             self.assertIn("http://crm.local/followups", text)
             # once only
@@ -118,7 +118,7 @@ class RemindersTest(unittest.TestCase):
         self.assertEqual(sales.get("/api/followups/email-settings").status_code, 403)
         self.assertEqual(sales.post("/api/followups/email-test").status_code, 403)
         with self.app.app_context():
-            self.assertEqual(sorted(u.email for u in reminders.recipients()), ["a@c.in", "s@c.in"])
+            self.assertEqual(sorted(u.email for u in reminders.recipients()), ["craftlanee@gmail.com", "s@c.in"])
 
 
 if __name__ == "__main__":

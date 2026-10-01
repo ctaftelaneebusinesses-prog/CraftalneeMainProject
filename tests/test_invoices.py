@@ -34,7 +34,7 @@ class InvoiceTest(unittest.TestCase):
 
     def test_invoice_lifecycle(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         new = self.ok(f.get("/api/invoices/new"))
         self.assertRegex(new["number_preview"], r"^CL-INV-\d{4}-0001$")
