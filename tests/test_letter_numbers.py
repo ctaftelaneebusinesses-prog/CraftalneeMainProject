@@ -53,10 +53,33 @@ class LetterNumbersTest(unittest.TestCase):
 
         self.assertEqual(create(i1)[1]["number"], f"CL-INTERN-{Y}-0001")
         self.assertEqual(create(ft)[1]["number"], f"CL-OFFER-{Y}-0001")
-        # a part-timer whose ID shares digits with the full-timer gets the next free number instead
-        self.assertEqual(create(pt)[1]["number"], f"CL-OFFER-{Y}-0002")
-        self.assertEqual(create(pt)[1]["number"], f"CL-OFFER-{Y}-0002")
-        self.assertEqual(create(i2, "joining")[1]["number"], f"CL-JOIN-{Y}-0002")
+        # IDs from another series keep their tag, so they never clash with CL-EMP-0001
+        self.assertEqual(create(pt)[1]["number"], f"CL-OFFER-PT-{Y}-0001")
+        self.assertEqual(create(pt)[1]["number"], f"CL-OFFER-PT-{Y}-0001")
+        self.assertEqual(create(i2, "joining")[1]["number"], f"CL-JOIN-INT-{Y}-0002")
+        self.assertEqual(create(ft, "joining")[1]["number"], f"CL-JOIN-{Y}-0001")
+
+    def test_old_numbers_are_aligned(self):
+        """Letters numbered by the old running count are renumbered to match their owner's ID on startup."""
+        from craftlanee.api.documents import align_letter_numbers
+        from craftlanee.extensions import db
+        from craftlanee.models import Employee, OfferLetter
+        with self.app.app_context():
+            koti = Employee.query.filter_by(emp_code="CL-INT-0001").first()
+            prathik = Employee.query.filter_by(emp_code="CL-INT-0002").first()
+            OfferLetter.query.delete()
+            # the live situation: Koti holds 0002, Prathik has three copies (0001, 0003, 0004)
+            for num, emp in ((f"CL-INTERN-{Y}-0001", prathik), (f"CL-INTERN-{Y}-0002", koti),
+                             (f"CL-INTERN-{Y}-0003", prathik), (f"CL-INTERN-{Y}-0004", prathik)):
+                db.session.add(OfferLetter(number=num, employee_id=emp.id, letter_date=date.today(),
+                                           candidate_name=emp.full_name, letter_type="internship"))
+            db.session.commit()
+            align_letter_numbers()
+            got = {(l.employee_id, l.number) for l in OfferLetter.query}
+            self.assertEqual(got, {(koti.id, f"CL-INTERN-{Y}-0001"), (prathik.id, f"CL-INTERN-{Y}-0002"),
+                                   (prathik.id, f"CL-INTERN-{Y}-0002-R1"), (prathik.id, f"CL-INTERN-{Y}-0002-R2")})
+            self.assertTrue(all(l.file_path for l in OfferLetter.query))  # PDFs regenerated with the new numbers
+            self.assertEqual(align_letter_numbers(), [])  # idempotent
 
 
 if __name__ == "__main__":

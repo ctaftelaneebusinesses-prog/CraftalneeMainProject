@@ -202,6 +202,10 @@ def create_app(test_config=None):
         db.create_all()
         _migrate()
         _upgrade_letter_defaults()
+        from .api.documents import align_letter_numbers
+        renumbered = align_letter_numbers(app.logger)
+        if renumbered:
+            app.logger.info("letter numbers aligned with employee IDs: %s", ", ".join(renumbered))
 
     _register_cli(app)
     return app

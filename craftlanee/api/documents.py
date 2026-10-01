@@ -42,20 +42,87 @@ def _existing(model, prefix, emp_id):
             .order_by(model.id.desc()).first())
 
 
-def _letter_number(model, prefix, emp, existing=None):
-    """The person's letter number follows their own ID: intern CL-INT-0002 -> CL-INTERN-<year>-0002.
+_HOME_SERIES = {"INTERN": "INT"}  # whose IDs a letter series is "for"; every other series is EMP
+_EMP_CODE = re.compile(r"^CL-([A-Z]+)-(\d+)$")
+_YEAR = re.compile(r"-(\d{4})-\d+(?:-R\d+)?$")
 
-    Falls back to the next number in the series if that one already belongs to someone else (e.g. a
-    full-timer and a part-timer whose IDs share digits)."""
-    m = re.search(r"(\d+)$", emp.emp_code or "")
-    if m:
-        number = f"CL-{prefix}-{date.today().year}-{int(m.group(1)):04d}"
+
+def _person_number(prefix, emp, year):
+    """The letter number carrying the person's own ID digits, so the two always match:
+    intern CL-INT-0002 -> CL-INTERN-2026-0002, CL-EMP-0001 -> CL-OFFER-2026-0001, and IDs from another series
+    keep their tag so nobody can clash: CL-PT-0001 -> CL-OFFER-PT-2026-0001. None if the ID isn't CL-XXX-0000."""
+    m = _EMP_CODE.match((emp.emp_code or "").strip().upper()) if emp else None
+    if not m:
+        return None
+    tag, digits = m.group(1), int(m.group(2))
+    mid = "" if tag == _HOME_SERIES.get(prefix, "EMP") else f"{tag}-"
+    return f"CL-{prefix}-{mid}{year}-{digits:04d}"
+
+
+def _year_of(number):
+    m = _YEAR.search(number or "")
+    return int(m.group(1)) if m else None
+
+
+def _letter_number(model, prefix, emp, existing=None):
+    """Number for this person's letter in this series (a reissue keeps its original year)."""
+    year = (_year_of(existing.number) if existing is not None else None) or date.today().year
+    number = _person_number(prefix, emp, year)
+    if number:
         holder = model.query.filter_by(number=number).first()
         if holder is None or (existing is not None and holder.id == existing.id):
             return number
     if existing is not None:
         return existing.number
     return next_doc_number(model, prefix)
+
+
+def align_letter_numbers(log=None):
+    """One-off, idempotent: renumber stored letters so each matches its owner's ID (see _person_number).
+
+    A person's latest letter in a series takes the number; older copies of it become <number>-R1, -R2…
+    Renumbered letters get their PDF regenerated so the printed number matches."""
+    changed = []
+    for kind, k in KINDS.items():
+        model = k["model"]
+        rows = model.query.order_by(model.id).all()
+        taken = {l.number: l.id for l in rows}
+        groups = {}
+        for l in rows:
+            groups.setdefault((l.employee_id, _prefix(kind, getattr(l, "letter_type", None))), []).append(l)
+        plan = {}
+        for (emp_id, prefix), letters in groups.items():
+            latest = letters[-1]
+            base = _person_number(prefix, db.session.get(Employee, emp_id),
+                                  _year_of(latest.number) or (latest.letter_date or date.today()).year)
+            if not base:
+                continue
+            plan[latest.id] = base
+            for n, older in enumerate(reversed(letters[:-1]), 1):
+                plan[older.id] = f"{base}-R{n}"
+        planned = set(plan)
+        # never take a number held by a letter that isn't being renumbered
+        plan = {i: num for i, num in plan.items() if taken.get(num, i) == i or taken[num] in planned}
+        todo = [l for l in rows if l.id in plan and l.number != plan[l.id]]
+        if not todo:
+            continue
+        for l in todo:
+            l.number = f"TMP-{kind}-{l.id}"
+        db.session.flush()
+        for l in todo:
+            l.number = plan[l.id]
+        db.session.flush()
+        changed += [(k, l) for l in todo]
+    db.session.commit()
+    for k, l in changed:
+        try:
+            _render(l, k["builder"], k["folder"])
+        except Exception as exc:  # noqa: BLE001 — a missing logo or storage hiccup mustn't stop the app starting
+            if log:
+                log.warning("could not regenerate %s: %s", l.number, exc)
+    if changed:
+        db.session.commit()
+    return [l.number for _, l in changed]
 
 
 def _kind(kind):
