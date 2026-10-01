@@ -4,11 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronsUpDown, KeyRound, LogOut, Menu, Moon, Search, ShieldCheck, Sun, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { useSession } from "@/lib/session";
+import { can, useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/format";
 import type { NavCounts } from "@/lib/types";
 import { Avatar, PageSkeleton } from "@/components/ui/core";
+import { ReminderBell } from "@/components/ReminderBell";
 import { CommandPalette } from "./CommandPalette";
 import { navFor, type NavGroup } from "./nav";
 
@@ -173,6 +174,7 @@ export function AppShell() {
           )}
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden md:inline text-[12.5px] text-fg-4">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</span>
+            {can(user, "followups") && <ReminderBell />}
             <ThemeToggle />
           </div>
         </header>

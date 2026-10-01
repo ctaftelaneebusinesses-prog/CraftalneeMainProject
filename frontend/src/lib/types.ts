@@ -418,6 +418,8 @@ export interface Lead {
   est_value: number | null;
   status: LeadStatus;
   next_followup: string | null;
+  next_followup_time: string | null;   // "HH:MM"; none = reminded at 9:00
+  remind_at: string | null;            // date + time the reminder fires
   due: LeadDue;
   notes: string | null;
   closed_at: string | null;
@@ -429,3 +431,7 @@ export interface Lead {
   activities?: LeadActivity[];   // only on the single-lead endpoints
 }
 export interface FollowupCounts { overdue: number; today: number; week: number; open: number; no_date: number; pipeline: number; won: number; lost: number }
+export interface EmailReminderSettings {
+  enabled: boolean; ready: boolean; smtp_host: string | null; smtp_port: number; smtp_user: string | null; smtp_from: string | null;
+  password_set: boolean; app_url: string; recipients: { name: string; email: string }[];
+}

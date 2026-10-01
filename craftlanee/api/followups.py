@@ -8,8 +8,9 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import LEAD_ACTIVITY_KINDS, LEAD_CLOSED, LEAD_SOURCES, LEAD_STATUSES, Lead, LeadActivity, now
+from ..reminders import due_now, later_today, parse_time, recipients, send_mail, smtp_ready
 from ..security import permission_required
-from ..utils import audit, clean, parse_date, to_decimal
+from ..utils import audit, clean, get_settings, parse_date, to_decimal
 from . import common as S
 from .common import bp, body, fail, fail_if, get_or_404, ok
 
@@ -32,7 +33,8 @@ def lead_json(l, full=False):
     data = {"id": l.id, "code": l.code, "name": l.name, "contact_person": l.contact_person, "phone": l.phone,
             "email": l.email, "source": l.source, "interest": l.interest,
             "est_value": S.money(l.est_value) if l.est_value is not None else None,
-            "status": l.status, "next_followup": S.iso(l.next_followup), "due": due_state(l),
+            "status": l.status, "next_followup": S.iso(l.next_followup), "next_followup_time": l.next_followup_time,
+            "remind_at": S.iso(l.remind_at), "due": due_state(l),
             "notes": l.notes, "closed_at": S.iso(l.closed_at), "created_by_name": l.created_by_name,
             "created_at": S.iso(l.created_at), "updated_at": S.iso(l.updated_at),
             "activity_count": len(l.activities),
@@ -52,7 +54,15 @@ def _set_status(lead, status):
     lead.status = status
     lead.closed_at = now() if status in LEAD_CLOSED else None
     if status in LEAD_CLOSED:
-        lead.next_followup = None
+        lead.next_followup = lead.next_followup_time = None
+
+
+def _set_next(lead, day, at_time):
+    """Set the next follow-up; a new date or time re-arms the reminder email."""
+    at_time = at_time if day else None
+    if (day, at_time) != (lead.next_followup, lead.next_followup_time):
+        lead.reminded_at = None
+    lead.next_followup, lead.next_followup_time = day, at_time
 
 
 def _apply(lead, d):
@@ -65,7 +75,7 @@ def _apply(lead, d):
     value = to_decimal(d.get("est_value"))
     lead.est_value = value if value > 0 else None
     lead.notes = clean(d, "notes", 4000) or None
-    lead.next_followup = parse_date(d.get("next_followup"))
+    _set_next(lead, parse_date(d.get("next_followup")), parse_time(d.get("next_followup_time")))
     _set_status(lead, d.get("status") or lead.status or "new")
     errors = []
     if not lead.name:
@@ -187,7 +197,7 @@ def followups_log(lead_id):
     db.session.add(LeadActivity(lead=lead, kind=kind, body=text, author_id=current_user.id,
                                 author_name=current_user.name))
     if "next_followup" in d:
-        lead.next_followup = parse_date(d.get("next_followup"))
+        _set_next(lead, parse_date(d.get("next_followup")), parse_time(d.get("next_followup_time")))
     if d.get("status"):
         _set_status(lead, d.get("status"))
     if lead.status == "new" and kind != "Note":
@@ -210,3 +220,69 @@ def followups_log_delete(lead_id, activity_id):
     db.session.commit()
     db.session.refresh(lead)
     return ok(lead=lead_json(lead, full=True))
+
+
+# ------------------------------------------------------------------ reminders
+
+@bp.get("/followups/reminders")
+@permission_required("followups")
+def followups_reminders():
+    """Polled by the browser every minute: what's due now (desktop pop-ups + the bell) and what's later today."""
+    return ok(due=[lead_json(l) for l in due_now()], later_today=[lead_json(l) for l in later_today()],
+              server_time=S.iso(now()))
+
+
+def _email_settings(s):
+    return {"enabled": bool(s.reminder_emails), "smtp_host": s.smtp_host, "smtp_port": s.smtp_port or 587,
+            "smtp_user": s.smtp_user, "smtp_from": s.smtp_from, "password_set": bool(s.smtp_password),
+            "app_url": s.app_url or request.host_url.rstrip("/"), "ready": smtp_ready(s),
+            "recipients": [{"name": u.name, "email": u.email} for u in recipients()]}
+
+
+@bp.get("/followups/email-settings")
+@permission_required("settings")
+def followups_email_settings():
+    return ok(settings=_email_settings(get_settings()))
+
+
+@bp.put("/followups/email-settings")
+@permission_required("settings")
+def followups_email_settings_save():
+    s, d = get_settings(), body()
+    s.smtp_host = clean(d, "smtp_host", 160) or None
+    try:
+        s.smtp_port = int(d.get("smtp_port") or 587)
+    except (TypeError, ValueError):
+        fail("Port must be a number, usually 587 or 465.")
+    s.smtp_user = clean(d, "smtp_user", 160) or None
+    s.smtp_from = clean(d, "smtp_from", 160) or s.smtp_user
+    if d.get("smtp_password"):
+        s.smtp_password = str(d.get("smtp_password")).strip()[:255]
+    elif d.get("clear_password"):
+        s.smtp_password = None
+    s.app_url = clean(d, "app_url", 200).rstrip("/") or None
+    s.reminder_emails = bool(d.get("enabled"))
+    if s.reminder_emails and not smtp_ready(s):
+        db.session.rollback()
+        fail("Enter the mail server and the From address before turning email reminders on.")
+    if s.smtp_from and "@" not in s.smtp_from:
+        db.session.rollback()
+        fail("The From address doesn't look like an email address.")
+    audit("updated follow-up email reminders", "settings", "on" if s.reminder_emails else "off")
+    db.session.commit()
+    return ok(settings=_email_settings(s))
+
+
+@bp.post("/followups/email-test")
+@permission_required("settings")
+def followups_email_test():
+    s = get_settings()
+    if not smtp_ready(s):
+        fail("Save the mail server settings first.")
+    to = current_user.email
+    try:
+        send_mail(s, [to], f"Test reminder · {s.company_name or 'CraftLanee'}",
+                  "Email reminders for client follow-ups are working.")
+    except Exception as exc:  # noqa: BLE001 — show the mail server's own message
+        fail(f"Couldn't send: {exc}", 502)
+    return ok(sent_to=to)

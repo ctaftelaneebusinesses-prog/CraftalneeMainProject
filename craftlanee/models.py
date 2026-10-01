@@ -39,6 +39,7 @@ LEAD_STATUSES = ["new", "contacted", "in_talks", "proposal", "won", "lost"]
 LEAD_CLOSED = {"won", "lost"}                                          # no further follow-up needed
 LEAD_SOURCES = ["Referral", "Website", "Social media", "Cold call", "Event", "Existing client", "Other"]
 LEAD_ACTIVITY_KINDS = ["Call", "Meeting", "Email", "WhatsApp", "Note"]
+REMINDER_DEFAULT_TIME = "09:00"
 
 # Areas of the admin console the founder can grant to an employee, one by one.
 PERMISSIONS = {
@@ -505,6 +506,14 @@ class CompanySettings(TimestampMixin, db.Model):
     joining_body = db.Column(db.Text)
     relieving_body = db.Column(db.Text)
     mou_terms = db.Column(db.Text)
+    # Outgoing mail for follow-up reminders. The password is write-only through the API.
+    smtp_host = db.Column(db.String(160))
+    smtp_port = db.Column(db.Integer)
+    smtp_user = db.Column(db.String(160))
+    smtp_password = db.Column(db.String(255))
+    smtp_from = db.Column(db.String(160))
+    reminder_emails = db.Column(db.Boolean, default=False, nullable=False)
+    app_url = db.Column(db.String(200))  # link in reminder emails
 
 
 class AuditLog(db.Model):
@@ -687,6 +696,8 @@ class Lead(TimestampMixin, db.Model):
     est_value = db.Column(Money)
     status = db.Column(db.String(20), default="new", nullable=False, index=True)
     next_followup = db.Column(db.Date, index=True)
+    next_followup_time = db.Column(db.String(5))               # "HH:MM", local; none = remind at REMINDER_DEFAULT_TIME
+    reminded_at = db.Column(db.DateTime)                       # reminder email sent for the current date/time
     notes = db.Column(db.Text)
     closed_at = db.Column(db.DateTime)
     created_by_name = db.Column(db.String(120))
@@ -701,6 +712,14 @@ class Lead(TimestampMixin, db.Model):
     @property
     def is_open(self):
         return self.status not in LEAD_CLOSED
+
+    @property
+    def remind_at(self):
+        """When the follow-up is due: its date at its time (or the default morning time)."""
+        if not self.next_followup:
+            return None
+        hh, mm = (self.next_followup_time or REMINDER_DEFAULT_TIME).split(":")
+        return datetime.combine(self.next_followup, datetime.min.time()).replace(hour=int(hh), minute=int(mm))
 
 
 class LeadActivity(TimestampMixin, db.Model):

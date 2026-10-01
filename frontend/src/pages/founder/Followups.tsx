@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlarmClock, CalendarClock, CalendarX2, Check, Handshake, Mail, MessageCircle, MessageSquareText, Pencil,
+import { AlarmClock, Bell, CalendarClock, CalendarX2, Check, Handshake, Mail, MessageCircle, MessageSquareText, Pencil,
   Phone, PhoneCall, Plus, Send, StickyNote, Trash2, Users } from "lucide-react";
 import { api, qs } from "@/lib/api";
 import { cn, fmtDate, inr, relative } from "@/lib/format";
@@ -12,6 +12,7 @@ import type { FollowupCounts, Lead, LeadStatus } from "@/lib/types";
 import { AnimatedNumber, Badge, Button, Card, EmptyState, Field, Input, MoneyInput, PageHeader, SearchInput, Segmented,
   Select, Skeleton, Textarea, type Tone } from "@/components/ui/core";
 import { Drawer, useConfirm } from "@/components/ui/overlay";
+import { RemindersDrawer } from "@/components/RemindersDrawer";
 
 const LEAD_STATUS: Record<LeadStatus, { label: string; tone: Tone }> = {
   new: { label: "New", tone: "info" },
@@ -29,7 +30,7 @@ const KINDS = Object.keys(KIND_ICON);
 type DueFilter = "" | "overdue" | "today" | "week" | "none";
 type ListData = { rows: Lead[]; counts: FollowupCounts };
 
-const EMPTY = { name: "", contact_person: "", phone: "", email: "", source: "", interest: "", est_value: "", status: "new", next_followup: "", notes: "" };
+const EMPTY = { name: "", contact_person: "", phone: "", email: "", source: "", interest: "", est_value: "", status: "new", next_followup: "", next_followup_time: "", notes: "" };
 
 function addDays(n: number) {
   const d = new Date();
@@ -65,12 +66,19 @@ export default function Followups() {
   const [form, setForm] = useState(EMPTY);
   const dq = useDebounced(q);
 
-  useEffect(() => { if (params.get("new")) { setEditing("new"); params.delete("new"); setParams(params, { replace: true }); } }, [params, setParams]);
+  const [reminders, setReminders] = useState(false);
+  useEffect(() => {
+    const open = Number(params.get("open"));
+    if (!params.get("new") && !open) return;
+    if (params.get("new")) setEditing("new");
+    if (open) setOpenId(open);
+    params.delete("new"); params.delete("open"); setParams(params, { replace: true });
+  }, [params, setParams]);
   useEffect(() => {
     if (editing === "new") setForm({ ...EMPTY, next_followup: addDays(1) });
     else if (editing) setForm({ name: editing.name, contact_person: editing.contact_person ?? "", phone: editing.phone ?? "", email: editing.email ?? "",
       source: editing.source ?? "", interest: editing.interest ?? "", est_value: editing.est_value != null ? String(editing.est_value) : "",
-      status: editing.status, next_followup: editing.next_followup ?? "", notes: editing.notes ?? "" });
+      status: editing.status, next_followup: editing.next_followup ?? "", next_followup_time: editing.next_followup_time ?? "", notes: editing.notes ?? "" });
   }, [editing]);
 
   const { data, isLoading } = useQuery({
@@ -78,7 +86,7 @@ export default function Followups() {
     queryFn: () => api.get<ListData>(`/followups${qs({ q: dq, due, status: due ? "" : status })}`),
     placeholderData: keepPreviousData,
   });
-  const invalidate = () => { ["followups", "followup", "dashboard", "nav-counts"].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); };
+  const invalidate = () => { ["followups", "followup", "followup-reminders", "dashboard", "nav-counts"].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); };
   const save = useMutation({
     mutationFn: () => editing && editing !== "new" ? api.put<{ lead: Lead }>(`/followups/${editing.id}`, form) : api.post<{ lead: Lead }>("/followups", form),
     onSuccess: (r) => { invalidate(); setEditing(null); toast.success(`${r.lead.name} saved`); },
@@ -94,7 +102,7 @@ export default function Followups() {
   return (
     <>
       <PageHeader eyebrow="Clients" title="Follow-ups" subtitle="Who to call back, when, and what was said last time."
-        actions={<Button variant="primary" icon={<Plus />} onClick={() => setEditing("new")}>Add lead</Button>} />
+        actions={<><Button icon={<Bell />} onClick={() => setReminders(true)}>Reminders</Button><Button variant="primary" icon={<Plus />} onClick={() => setEditing("new")}>Add lead</Button></>} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         <StatCard active={due === "overdue"} onClick={() => pickDue("overdue")} icon={<AlarmClock className="size-4 text-bad" />} label="Overdue" value={c?.overdue ?? 0} foot="Missed follow-up date" accent={!!c?.overdue && "text-bad"} />
@@ -154,6 +162,7 @@ export default function Followups() {
           )}
       </Card>
 
+      <RemindersDrawer open={reminders} onClose={() => setReminders(false)} />
       <LeadDrawer id={openId} onClose={() => setOpenId(null)} onEdit={(l) => { setOpenId(null); setEditing(l); }} onDelete={remove} onChanged={invalidate} />
 
       <Drawer open={!!editing} onClose={() => setEditing(null)} title={editing && editing !== "new" ? `Edit ${editing.name}` : "Add lead"}
@@ -174,15 +183,28 @@ export default function Followups() {
               <datalist id="lead-interests">{["Website", "Mobile app", "Software", "Training", "Consulting", "Maintenance"].map((s) => <option key={s} value={s} />)}</datalist></Field>
             <Field label="Estimated value" optional><MoneyInput value={form.est_value} onChange={(v) => setForm({ ...form, est_value: v })} placeholder="0" /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Status"><Select {...f("status")} options={STATUS_OPTIONS} /></Field>
-            <Field label="Next follow-up" optional><Input type="date" {...f("next_followup")} /></Field>
-          </div>
-          {form.status !== "won" && form.status !== "lost" && <DateChips value={form.next_followup} onChange={(v) => setForm({ ...form, next_followup: v })} allowNone />}
+          <Field label="Status"><Select {...f("status")} options={STATUS_OPTIONS} /></Field>
+          {form.status !== "won" && form.status !== "lost" && <div>
+            <NextFields date={form.next_followup} time={form.next_followup_time} onChange={(d, t) => setForm({ ...form, next_followup: d, next_followup_time: t })} />
+          </div>}
           <Field label="Notes" optional><Textarea {...f("notes")} className="min-h-[90px]" placeholder="Requirements, budget, decision maker…" /></Field>
         </div>
       </Drawer>
     </>
+  );
+}
+
+/** Next follow-up date + optional reminder time, with quick-pick chips. */
+function NextFields({ date, time, onChange }: { date: string; time: string; onChange: (date: string, time: string) => void }) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Next follow-up" optional><Input type="date" value={date} onChange={(e) => onChange(e.target.value, e.target.value ? time : "")} /></Field>
+        <Field label="Remind me at" optional hint={date && !time ? "No time: reminder at 9:00 AM" : undefined}>
+          <Input type="time" value={time} disabled={!date} onChange={(e) => onChange(date, e.target.value)} /></Field>
+      </div>
+      <DateChips value={date} onChange={(d) => onChange(d, d ? time : "")} allowNone />
+    </div>
   );
 }
 
@@ -206,15 +228,16 @@ function LeadDrawer({ id, onClose, onEdit, onDelete, onChanged }: { id: number |
   const [kind, setKind] = useState("Call");
   const [text, setText] = useState("");
   const [next, setNext] = useState("");
+  const [nextTime, setNextTime] = useState("");
   const [status, setStatus] = useState("");
 
-  useEffect(() => { setKind("Call"); setText(""); setNext(addDays(3)); setStatus(""); }, [id]);
+  useEffect(() => { setKind("Call"); setText(""); setNext(addDays(3)); setNextTime(""); setStatus(""); }, [id]);
 
   const closing = status === "won" || status === "lost";
   const apply = (r: { lead: Lead }) => { qc.setQueryData(["followup", id], r); onChanged(); };
   const log = useMutation({
-    mutationFn: () => api.post<{ lead: Lead }>(`/followups/${id}/log`, { kind, body: text.trim(), next_followup: closing ? "" : next, status }),
-    onSuccess: (r) => { apply(r); setText(""); setStatus(""); setNext(addDays(3)); toast.success("Follow-up logged"); },
+    mutationFn: () => api.post<{ lead: Lead }>(`/followups/${id}/log`, { kind, body: text.trim(), next_followup: closing ? "" : next, next_followup_time: closing ? "" : nextTime, status }),
+    onSuccess: (r) => { apply(r); setText(""); setStatus(""); setNext(addDays(3)); setNextTime(""); toast.success("Follow-up logged"); },
   });
   const delLog = useMutation({ mutationFn: (aid: number) => api.del<{ lead: Lead }>(`/followups/${id}/log/${aid}`), onSuccess: apply });
   const submit = (e: FormEvent) => { e.preventDefault(); if (text.trim()) log.mutate(); };
@@ -253,13 +276,10 @@ function LeadDrawer({ id, onClose, onEdit, onDelete, onChanged }: { id: number |
               </div>
               <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="What was discussed? What's the next step?" className="min-h-[84px]" maxLength={4000}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(e); }} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Status after this"><Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder={`Keep: ${LEAD_STATUS[lead.status].label}`} options={STATUS_OPTIONS} /></Field>
-                <Field label="Next follow-up">{closing
-                  ? <div className="input flex items-center gap-2 text-fg-4"><CalendarX2 className="size-4" />Not needed</div>
-                  : <Input type="date" value={next} onChange={(e) => setNext(e.target.value)} />}</Field>
-              </div>
-              {!closing && <DateChips value={next} onChange={setNext} allowNone />}
+              <Field label="Status after this"><Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder={`Keep: ${LEAD_STATUS[lead.status].label}`} options={STATUS_OPTIONS} /></Field>
+              {closing
+                ? <Field label="Next follow-up"><div className="input flex items-center gap-2 text-fg-4"><CalendarX2 className="size-4" />Not needed</div></Field>
+                : <NextFields date={next} time={nextTime} onChange={(d, t) => { setNext(d); setNextTime(t); }} />}
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11.5px] text-fg-4">Ctrl + Enter to save</span>
                 <Button size="sm" type="submit" variant="primary" icon={<Send />} loading={log.isPending} disabled={!text.trim()}>Save follow-up</Button>
