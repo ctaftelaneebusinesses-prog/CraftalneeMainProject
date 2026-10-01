@@ -436,16 +436,19 @@ def offer_letter(letter, settings, target):
         rows = [("Internship role", role), ("Department", letter.department),
                 ("Start date", long_date(letter.joining_date)), ("End date", long_date(letter.end_date)),
                 ("Duration", f"{months} month{'s' if months != 1 else ''}" if months else "—"),
+                ("Place of work", letter.work_location), ("Mentor / reporting to", letter.reporting_person),
+                ("Working hours", letter.working_hours), ("Working days", letter.work_days),
                 ("Monthly stipend", _salary(letter.salary)) if letter.pay_basis != "percentage"
-                else ("Compensation", f"{_pct(letter.commission_percent)} per product" if letter.commission_percent else None),
-                ("Mentor / reporting to", letter.reporting_person), ("Work location", letter.work_location)]
+                else ("Compensation", f"{_pct(letter.commission_percent)} per product" if letter.commission_percent else None)]
         story += [section("Internship Details", st, 1), kv_table(rows, st)]
     else:
         rows = [("Designation", role), ("Department", letter.department),
                 ("Employment type", letter.employment_type), ("Date of joining", long_date(letter.joining_date))]
         if letter.employment_type in FIXED_TERM_TYPES and letter.end_date:
             rows.append(("Engagement end date", long_date(letter.end_date)))
-        rows += [("Reporting to", letter.reporting_person), ("Work location", letter.work_location),
+        rows += [("Place of work", letter.work_location), ("Reporting to", letter.reporting_person),
+                 ("Working hours", letter.working_hours), ("Working days", letter.work_days),
+                 ("Probation period", letter.probation_period), ("Notice period", letter.notice_period),
                  ("Monthly gross salary", _salary(letter.salary))]
         if letter.salary and letter.employment_type in ("Full-time", "Part-time"):
             rows.append(("Annual CTC", money(float(letter.salary) * 12)))
@@ -479,8 +482,10 @@ def joining_letter(letter, settings, target):
     story += rich(letter.body, st)
     rows = [("Employee name", name), ("Employee ID", letter.emp_code), ("Designation", role),
             ("Department", letter.department), ("Employment type", letter.employment_type),
-            ("Date of joining", long_date(letter.joining_date)), ("Reporting to", letter.reporting_person),
-            ("Work location", letter.work_location), ("Monthly salary", _salary(letter.salary))]
+            ("Date of joining", long_date(letter.joining_date)), ("Place of work", letter.work_location),
+            ("Reporting to", letter.reporting_person), ("Working hours", letter.working_hours),
+            ("Working days", letter.work_days), ("Probation period", letter.probation_period),
+            ("Monthly salary", _salary(letter.salary))]
     story += [section("Employment Details", st, 1), kv_table([r for r in rows if r[1]], st),
               sign_off(settings, st, "Warm regards,", hr=True), CondPageBreak(50 * mm),
               acceptance_box("ACKNOWLEDGEMENT",

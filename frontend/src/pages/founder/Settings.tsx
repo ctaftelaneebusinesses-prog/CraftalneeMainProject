@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Activity, Building2, Check, FileText, KeyRound, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
+import { Activity, Building2, Check, Clock3, FileText, KeyRound, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { CompanySettings } from "@/lib/types";
@@ -12,7 +12,7 @@ import { FileDrop } from "@/components/ui/overlay";
 import { Segmented } from "@/components/ui/core";
 import { RichTextEditor } from "@/components/RichTextEditor";
 
-const TEXT = ["company_name", "tagline", "address", "phone", "email", "website", "gstin", "founder_name", "founder_designation", "hr_name", "hr_designation", "offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms"] as const;
+const TEXT = ["company_name", "tagline", "address", "phone", "email", "website", "gstin", "founder_name", "founder_designation", "hr_name", "hr_designation", "work_hours", "work_days", "probation_period", "notice_period", "offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms"] as const;
 type RichKey = "offer_terms" | "internship_terms" | "joining_body" | "relieving_body" | "mou_terms";
 const RICH_TABS: { value: RichKey; label: string; hint: string }[] = [
   { value: "offer_terms", label: "Offer T&C", hint: "Terms & conditions on employment offer letters." },
@@ -114,6 +114,12 @@ export default function Settings() {
           <Field label="HR name"><Input {...bind("hr_name")} required /></Field>
           <Field label="Designation"><Input {...bind("hr_designation")} placeholder="Manager" required /></Field>
           {img("hr_signature", "HR signature", "Scan on white or transparent", s.hr_signature_url)}
+        </Section>
+        <Section icon={<Clock3 />} title="Work policy" text="Pre-filled into every new offer and joining letter, where each can still be changed.">
+          <Field label="Working hours"><Input {...bind("work_hours")} placeholder="9:30 AM to 6:30 PM" /></Field>
+          <Field label="Working days"><Input {...bind("work_days")} placeholder="Monday to Friday" /></Field>
+          <Field label="Probation period" hint="Employees only, not interns."><Input {...bind("probation_period")} placeholder="3 months" /></Field>
+          <Field label="Notice period" hint="After confirmation. Employees only."><Input {...bind("notice_period")} placeholder="30 days" /></Field>
         </Section>
         <Section icon={<Palette />} title="Branding" text="Transparent PNGs look best. A letterhead image, if set, replaces the logo header on PDFs.">
           {img("logo", "Logo", "Square or wide · sidebar & PDFs", s.logo_url)}

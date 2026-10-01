@@ -94,6 +94,10 @@ export interface CompanySettings extends Company {
   joining_body: string | null;
   relieving_body: string | null;
   mou_terms: string | null;
+  work_hours: string | null;
+  work_days: string | null;
+  probation_period: string | null;
+  notice_period: string | null;
   signature_url: string | null;
   hr_name: string | null;
   hr_designation: string | null;
@@ -136,6 +140,10 @@ export interface OfferLetter extends LetterBase {
   letter_type: "employment" | "internship";
   pay_basis: "stipend" | "percentage";   // internships: monthly stipend or % per product
   commission_percent: number | null;
+  working_hours: string | null;
+  work_days: string | null;
+  probation_period: string | null;   // employment offers only
+  notice_period: string | null;      // employment offers only
   intro: string;
   terms: string;
 }

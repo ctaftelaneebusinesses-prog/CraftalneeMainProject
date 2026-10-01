@@ -291,6 +291,10 @@ class OfferLetter(TimestampMixin, db.Model):
     # Internships are paid either a monthly stipend (salary) or a percentage per product.
     pay_basis = db.Column(db.String(20), default="stipend", nullable=False)  # stipend | percentage
     commission_percent = db.Column(db.Numeric(5, 2))
+    working_hours = db.Column(db.String(80))
+    work_days = db.Column(db.String(80))
+    probation_period = db.Column(db.String(40))   # employment offers only
+    notice_period = db.Column(db.String(40))      # employment offers only
     intro = db.Column(db.Text)
     terms = db.Column(db.Text)
     file_path = db.Column(db.String(255))
@@ -315,6 +319,9 @@ class JoiningLetter(TimestampMixin, db.Model):
     reporting_person = db.Column(db.String(120))
     employment_type = db.Column(db.String(30))
     work_location = db.Column(db.String(120))
+    working_hours = db.Column(db.String(80))
+    work_days = db.Column(db.String(80))
+    probation_period = db.Column(db.String(40))
     body = db.Column(db.Text)
     file_path = db.Column(db.String(255))
     archived = db.Column(db.Boolean, default=False, nullable=False)
@@ -525,6 +532,11 @@ class CompanySettings(TimestampMixin, db.Model):
     smtp_from = db.Column(db.String(160))
     reminder_emails = db.Column(db.Boolean, default=False, nullable=False)
     app_url = db.Column(db.String(200))  # link in reminder emails
+    # Work policy pre-filled into offer / joining letters (blank = built-in default from defaults.py).
+    work_hours = db.Column(db.String(80))
+    work_days = db.Column(db.String(80))
+    probation_period = db.Column(db.String(40))
+    notice_period = db.Column(db.String(40))
 
 
 class AuditLog(db.Model):

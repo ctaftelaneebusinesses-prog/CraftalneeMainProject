@@ -138,7 +138,11 @@ export default function LetterEditor() {
                   <Field label={intern ? "Monthly stipend" : "Monthly salary"} hint="Leave at 0 to keep it off the letter."><MoneyInput value={v("salary")} onChange={(x) => set("salary", x)} /></Field>
                 )}
                 <Field label={intern ? "Mentor / reporting to" : "Reporting to"}><Input {...bind("reporting_person")} /></Field>
-                <Field label="Work location"><Input {...bind("work_location")} /></Field>
+                <Field label="Place of work"><Input {...bind("work_location")} placeholder="e.g. Kochi office / Remote" /></Field>
+                <Field label="Working hours"><Input {...bind("working_hours")} placeholder="9:30 AM to 6:30 PM" /></Field>
+                <Field label="Working days"><Input {...bind("work_days")} placeholder="Monday to Friday" /></Field>
+                {!intern && <Field label="Probation period"><Input {...bind("probation_period")} placeholder="3 months" /></Field>}
+                {kind === "offer" && !intern && <Field label="Notice period" hint="After confirmation"><Input {...bind("notice_period")} placeholder="30 days" /></Field>}
               </>)}
               {kind === "offer" && <Field label="Address" className="sm:col-span-2"><Textarea {...bind("address")} rows={2} className="min-h-[70px]" /></Field>}
             </div>
@@ -158,7 +162,7 @@ export default function LetterEditor() {
             </Card>
             <Card className="p-6">
               <div className="font-display font-semibold mb-1">Terms & conditions</div>
-              <p className="text-[12.5px] text-fg-3 mb-3">Use bold for headings and numbered points for each term. Defaults live in Settings.</p>
+              <p className="text-[12.5px] text-fg-3 mb-3">Covers place of work, reporting, hours, probation, reviews, policies and code of conduct, confidentiality and more. Use bold for headings and numbered points. Defaults live in Settings.</p>
               <RichTextEditor value={v("terms")} onChange={(h) => set("terms", h)} minHeight={260} />
             </Card>
           </>) : (

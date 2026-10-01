@@ -68,6 +68,15 @@ def _migrate():
                 conn.execute(text(ddl))
 
 
+def _upgrade_letter_defaults():
+    """Saved letter texts that are just an older built-in default switch to the current one."""
+    from .defaults import upgrade_saved_defaults
+    from .models import CompanySettings
+    settings = CompanySettings.query.first()
+    if settings and upgrade_saved_defaults(settings):
+        db.session.commit()
+
+
 def database_url(instance_path):
     """CRAFTLANEE_DATABASE_URL (or DATABASE_URL) as given by Supabase/Render, else local SQLite.
 
@@ -192,6 +201,7 @@ def create_app(test_config=None):
     with app.app_context():
         db.create_all()
         _migrate()
+        _upgrade_letter_defaults()
 
     _register_cli(app)
     return app

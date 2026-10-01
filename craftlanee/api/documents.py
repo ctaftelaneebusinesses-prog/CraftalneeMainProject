@@ -8,7 +8,8 @@ from sqlalchemy import or_
 
 from .. import pdf
 from ..defaults import (DEFAULT_INTERNSHIP_INTRO, DEFAULT_INTERNSHIP_TERMS, DEFAULT_JOINING_BODY, DEFAULT_RELIEVING_BODY,
-                        DEFAULT_MOU_TERMS, DEFAULT_OFFER_INTRO, DEFAULT_OFFER_TERMS, fill_template)
+                        DEFAULT_MOU_TERMS, DEFAULT_NOTICE, DEFAULT_OFFER_INTRO, DEFAULT_OFFER_TERMS, DEFAULT_PROBATION,
+                        DEFAULT_WORK_DAYS, DEFAULT_WORK_HOURS, fill_template)
 from ..extensions import db
 from ..models import (STIPEND_TYPES, Employee, EmployeeDocument, JoiningLetter, Mou, OfferLetter, Payslip,
                       RelievingLetter)
@@ -64,6 +65,11 @@ def _apply_offer(l, d):
     l.commission_percent = pct if l.pay_basis == "percentage" and pct > 0 else None
     if l.pay_basis == "percentage":
         l.salary = 0
+    l.working_hours = clean(d, "working_hours", 80) or None
+    l.work_days = clean(d, "work_days", 80) or None
+    employment = l.letter_type == "employment"
+    l.probation_period = (clean(d, "probation_period", 40) or None) if employment else None
+    l.notice_period = (clean(d, "notice_period", 40) or None) if employment else None
     l.intro = sanitize_html(d.get("intro"))
     l.terms = sanitize_html(d.get("terms"))
     errors = [] if l.candidate_name else ["Employee name is required."]
@@ -83,6 +89,9 @@ def _apply_joining(l, d):
     l.reporting_person = clean(d, "reporting_person", 120) or None
     l.employment_type = clean(d, "employment_type", 30) or None
     l.work_location = clean(d, "work_location", 120) or None
+    l.working_hours = clean(d, "working_hours", 80) or None
+    l.work_days = clean(d, "work_days", 80) or None
+    l.probation_period = clean(d, "probation_period", 40) or None
     l.body = sanitize_html(d.get("body"))
     return [] if l.employee_name else ["Employee name is required."]
 
@@ -116,12 +125,16 @@ def _draft(kind, emp):
             "designation": emp.roles_label or emp.designation, "department": emp.department,
             "joining_date": iso(emp.joining_date), "salary": S.money(emp.monthly_salary),
             "employment_type": emp.employment_type, "work_location": emp.work_location,
-            "reporting_person": reporting}
+            "reporting_person": reporting, "working_hours": s.work_hours or DEFAULT_WORK_HOURS,
+            "work_days": s.work_days or DEFAULT_WORK_DAYS}
+    stipend = emp.employment_type in STIPEND_TYPES
+    probation = None if stipend else (s.probation_period or DEFAULT_PROBATION)
     if kind == "offer":
         intern = emp.employment_type in STIPEND_TYPES
         return base | {"candidate_name": emp.full_name, "address": emp.address, "end_date": iso(emp.end_date),
                        "letter_type": "internship" if intern else "employment",
-                       "pay_basis": "stipend", "commission_percent": None,
+                       "pay_basis": "stipend", "commission_percent": None, "probation_period": probation,
+                       "notice_period": None if intern else (s.notice_period or DEFAULT_NOTICE),
                        "intro": fill_template(DEFAULT_INTERNSHIP_INTRO if intern else DEFAULT_OFFER_INTRO, emp, s),
                        "terms": (s.internship_terms or DEFAULT_INTERNSHIP_TERMS) if intern
                        else (s.offer_terms or DEFAULT_OFFER_TERMS)}
@@ -131,7 +144,7 @@ def _draft(kind, emp):
                        "last_working_day": iso(lwd), "mark_inactive": emp.status == "active",
                        "body": fill_template(s.relieving_body or DEFAULT_RELIEVING_BODY, emp, s,
                                              last_working_day=lwd.strftime("%d %B %Y"))}
-    return base | {"employee_name": emp.full_name, "emp_code": emp.emp_code,
+    return base | {"employee_name": emp.full_name, "emp_code": emp.emp_code, "probation_period": probation,
                    "body": fill_template(s.joining_body or DEFAULT_JOINING_BODY, emp, s)}
 
 

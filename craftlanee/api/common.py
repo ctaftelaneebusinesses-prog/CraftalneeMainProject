@@ -128,7 +128,8 @@ def offer_letter(l):
             "salary": money(l.salary), "employment_type": l.employment_type,
             "work_location": l.work_location, "reporting_person": l.reporting_person,
             "end_date": iso(l.end_date), "letter_type": l.letter_type or "employment",
-            "pay_basis": l.pay_basis or "stipend",
+            "pay_basis": l.pay_basis or "stipend", "working_hours": l.working_hours, "work_days": l.work_days,
+            "probation_period": l.probation_period, "notice_period": l.notice_period,
             "commission_percent": float(l.commission_percent) if l.commission_percent is not None else None,
             "intro": l.intro, "terms": l.terms,
             "archived": l.archived, "created_at": iso(l.created_at),
@@ -142,6 +143,7 @@ def joining_letter(l):
             "designation": l.designation, "department": l.department, "joining_date": iso(l.joining_date),
             "salary": money(l.salary), "reporting_person": l.reporting_person, "body": l.body,
             "employment_type": l.employment_type, "work_location": l.work_location,
+            "working_hours": l.working_hours, "work_days": l.work_days, "probation_period": l.probation_period,
             "archived": l.archived, "created_at": iso(l.created_at),
             "file_url": file_url("joining", l)}
 
@@ -235,6 +237,8 @@ def company(s, full=False):
                  "hr_name": s.hr_name, "hr_designation": s.hr_designation,
                  "offer_terms": s.offer_terms, "internship_terms": s.internship_terms,
                  "joining_body": s.joining_body, "relieving_body": s.relieving_body, "mou_terms": s.mou_terms,
+                 "work_hours": s.work_hours, "work_days": s.work_days, "probation_period": s.probation_period,
+                 "notice_period": s.notice_period,
                  "show_name_with_logo": bool(s.show_name_with_logo),
                  "signature_url": file_url("signature", s) if s.signature_path else None,
                  "hr_signature_url": file_url("hr_signature", s) if s.hr_signature_path else None,

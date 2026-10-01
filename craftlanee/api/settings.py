@@ -2,8 +2,9 @@
 from flask import abort, request
 from flask_login import current_user, login_required
 
-from ..defaults import (DEFAULT_INTERNSHIP_TERMS, DEFAULT_JOINING_BODY, DEFAULT_MOU_TERMS, DEFAULT_RELIEVING_BODY,
-                        DEFAULT_OFFER_TERMS)
+from ..defaults import (DEFAULT_INTERNSHIP_TERMS, DEFAULT_JOINING_BODY, DEFAULT_MOU_TERMS, DEFAULT_NOTICE,
+                        DEFAULT_OFFER_TERMS, DEFAULT_PROBATION, DEFAULT_RELIEVING_BODY, DEFAULT_WORK_DAYS,
+                        DEFAULT_WORK_HOURS, is_default)
 from ..extensions import db
 from ..models import AuditLog, EmployeeDocument, JoiningLetter, OfferLetter, Payslip, RelievingLetter
 from ..security import employee_required, permission_required
@@ -14,7 +15,8 @@ from .common import bp, fail, ok
 
 TEXT = {"company_name": 160, "tagline": 200, "address": 1000, "phone": 40, "email": 160,
         "website": 160, "gstin": 30, "founder_name": 120, "founder_designation": 120,
-        "hr_name": 120, "hr_designation": 120}
+        "hr_name": 120, "hr_designation": 120,
+        "work_hours": 80, "work_days": 80, "probation_period": 40, "notice_period": 40}
 RICH = ("offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms")
 IMAGES = ("logo", "signature", "hr_signature", "letterhead")
 SIGNATURES = ("signature", "hr_signature")  # only the main founder (User.is_primary) may change these
@@ -26,7 +28,9 @@ def settings_get():
     return ok(settings=S.company(get_settings(), full=True), 
               defaults={"offer_terms": DEFAULT_OFFER_TERMS, "internship_terms": DEFAULT_INTERNSHIP_TERMS,
                         "joining_body": DEFAULT_JOINING_BODY, "relieving_body": DEFAULT_RELIEVING_BODY,
-                        "mou_terms": DEFAULT_MOU_TERMS})
+                        "mou_terms": DEFAULT_MOU_TERMS, "work_hours": DEFAULT_WORK_HOURS,
+                        "work_days": DEFAULT_WORK_DAYS, "probation_period": DEFAULT_PROBATION,
+                        "notice_period": DEFAULT_NOTICE})
 
 
 @bp.post("/settings")
@@ -47,7 +51,8 @@ def settings_save():
             fail(f"{label} is required.")
     for field in RICH:
         if field in form:
-            setattr(s, field, sanitize_html(form.get(field)) or None)
+            html = sanitize_html(form.get(field)) or None
+            setattr(s, field, None if is_default(field, html) else html)
     if "show_name_with_logo" in form:
         s.show_name_with_logo = form.get("show_name_with_logo") in ("1", "true")
     s.company_name = s.company_name or "CraftLanee"
