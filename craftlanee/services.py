@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import case, func
 
 from .extensions import db
-from .models import Employee, Expense, Income
+from .models import STIPEND_TYPES, Employee, Expense, Income
 
 
 def _between(q, col, start, end):
@@ -63,8 +63,18 @@ def expenses_by_category(start=None, end=None):
 
 
 def headcount():
+    """People on the books, with interns & trainees (stipend types) counted apart from employees."""
     active = Employee.status == "active"
-    total, active_n, monthly = db.session.query(
+    intern = Employee.employment_type.in_(sorted(STIPEND_TYPES))
+    active_emp, active_int = active & ~intern, active & intern
+    total, active_n, monthly, emp_total, emp_active, int_total, int_active, salaries, stipends = db.session.query(
         func.count(Employee.id), func.sum(case((active, 1), else_=0)),
-        func.sum(case((active, Employee.monthly_salary), else_=0))).one()
-    return {"total": total, "active": int(active_n or 0), "monthly_payroll": _dec(monthly)}
+        func.sum(case((active, Employee.monthly_salary), else_=0)),
+        func.sum(case((intern, 0), else_=1)), func.sum(case((active_emp, 1), else_=0)),
+        func.sum(case((intern, 1), else_=0)), func.sum(case((active_int, 1), else_=0)),
+        func.sum(case((active_emp, Employee.monthly_salary), else_=0)),
+        func.sum(case((active_int, Employee.monthly_salary), else_=0))).one()
+    return {"total": total, "active": int(active_n or 0), "monthly_payroll": _dec(monthly),
+            "employees_total": int(emp_total or 0), "employees_active": int(emp_active or 0),
+            "interns_total": int(int_total or 0), "interns_active": int(int_active or 0),
+            "salaries": _dec(salaries), "stipends": _dec(stipends)}

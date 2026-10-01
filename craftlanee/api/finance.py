@@ -93,7 +93,7 @@ def dashboard():
                    if can("team") else [])
     people = {k: (S.money(v) if isinstance(v, Decimal) else v) for k, v in headcount().items()}
     if not (can("employees") or can("payroll")):
-        people["monthly_payroll"] = None
+        people["monthly_payroll"] = people["salaries"] = people["stipends"] = None
     finance = can("finance")
     return ok(
         areas=sorted(current_user.perms),

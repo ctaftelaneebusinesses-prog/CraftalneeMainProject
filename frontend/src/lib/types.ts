@@ -71,6 +71,7 @@ export interface User {
   is_owner: boolean;   // the founder
   permissions: Area[]; // console areas this user may use (all of them for the founder)
   full_access: boolean; // has every area
+  can_edit_signatures: boolean; // the one founder login allowed to change the PDF signatures
   employee: EmployeeBrief | null;
 }
 

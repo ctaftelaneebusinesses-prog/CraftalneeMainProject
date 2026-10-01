@@ -5,6 +5,7 @@ Generated PDFs and uploads live under instance/storage and are only ever served
 through the authorised /files routes.
 """
 import json
+import os
 import re
 from datetime import datetime
 from decimal import Decimal
@@ -54,6 +55,8 @@ PERMISSIONS = {
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
 ALL_PERMISSIONS = list(PERMISSIONS)
+# The one founder login allowed to upload, replace or remove the founder / HR signatures on PDFs.
+SIGNATURE_OWNER = (os.environ.get("CRAFTLANEE_SIGNATURE_OWNER") or "craftlanee@gmail.com").strip().lower()
 
 
 def now():
@@ -118,6 +121,10 @@ class User(UserMixin, TimestampMixin, db.Model):
         except ValueError:
             return set()
         return {p for p in granted if p in PERMISSIONS} if isinstance(granted, list) else set()
+
+    @property
+    def can_edit_signatures(self):
+        return self.is_founder and (self.email or "").lower() == SIGNATURE_OWNER
 
     @property
     def full_access(self):

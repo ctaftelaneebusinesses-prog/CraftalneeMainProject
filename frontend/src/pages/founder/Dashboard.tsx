@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { CalendarDays, CheckCircle2, Layers, ListTodo, PhoneCall, Plane } from "lucide-react";
+import { CalendarDays, CheckCircle2, GraduationCap, Layers, ListTodo, PhoneCall, Plane } from "lucide-react";
 import { Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, BriefcaseBusiness, FileText, Handshake,
-  Plus, Send, Settings2, Sparkles, TrendingDown, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
+  Plus, Send, Settings2, Sparkles, TrendingDown, TrendingUp, UserPlus, Users, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, greeting, inr, monthLabel, relative } from "@/lib/format";
 import { can, useSession } from "@/lib/session";
@@ -15,7 +15,8 @@ import { CATEGORY_COLORS, Donut, Sparkline, TrendChart } from "@/components/char
 
 interface DashboardData {
   // Sections outside the viewer's granted areas come back null / empty.
-  people: { total: number; active: number; monthly_payroll: number | null };
+  people: { total: number; active: number; monthly_payroll: number | null; salaries: number | null; stipends: number | null;
+    employees_total: number; employees_active: number; interns_total: number; interns_active: number };
   totals: Totals | null;
   this_month: (Totals & { label: string }) | null;
   trend: TrendPoint[];
@@ -123,9 +124,11 @@ export default function Dashboard() {
             </div>
           </Card>
         </StaggerItem>}
-        <StaggerItem><Kpi icon={<Users />} label="Total employees" value={people.total} money={false} foot={`${people.total - people.active} inactive`} tint="brand" to="/employees" /></StaggerItem>
-        <StaggerItem><Kpi icon={<UserCheck />} label="Active employees" value={people.active} money={false} foot="Currently on payroll" tint="good" to="/employees" /></StaggerItem>
-        {people.monthly_payroll !== null && <StaggerItem><Kpi icon={<Wallet />} label="Monthly payroll" value={people.monthly_payroll} foot="Sum of active salaries" tint="flame" to={can(user, "payroll") ? "/payroll" : "/employees"} /></StaggerItem>}
+        <StaggerItem><Kpi icon={<Users />} label="Employees" value={people.employees_active} money={false} foot={`Active · ${people.employees_total - people.employees_active} inactive`} tint="brand" to="/employees" /></StaggerItem>
+        <StaggerItem><Kpi icon={<GraduationCap />} label="Interns & trainees" value={people.interns_active} money={false} foot={`Active · ${people.interns_total - people.interns_active} inactive`} tint="good" to="/employees" /></StaggerItem>
+        {people.monthly_payroll !== null && <StaggerItem><Kpi icon={<Wallet />} label="Monthly payroll" value={people.monthly_payroll}
+          foot={people.salaries && people.stipends ? `${inr(people.salaries)} salaries · ${inr(people.stipends)} stipends` : people.stipends ? "Intern & trainee stipends" : "Active salaries"}
+          tint="flame" to={can(user, "payroll") ? "/payroll" : "/employees"} /></StaggerItem>}
         {totals && <StaggerItem><Kpi icon={<TrendingUp />} label="Total income" value={totals.income} foot={totals.pending_income ? `${inr(totals.pending_income)} pending` : "Received to date"} tint="info" to="/finance/income" /></StaggerItem>}
       </Stagger>
 

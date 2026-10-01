@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Activity, Building2, Check, FileText, KeyRound, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
+import { Activity, Building2, Check, FileText, KeyRound, Lock, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { CompanySettings } from "@/lib/types";
@@ -38,10 +38,10 @@ function Section({ icon, title, text, children }: { icon: ReactNode; title: stri
 
 export default function Settings() {
   const qc = useQueryClient();
-  const { session, setSession } = useSession();
+  const { session, setSession, user } = useSession();
   const [params] = useSearchParams();
   const welcome = params.get("welcome");
-  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string> }>("/settings") });
+  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string>; signature_owner: string }>("/settings") });
   const [richTab, setRichTab] = useState<RichKey>("offer_terms");
   const [v, setV] = useState<Record<Key, string>>(Object.fromEntries(TEXT.map((k) => [k, ""])) as Record<Key, string>);
   const [files, setFiles] = useState<Record<Img, File | null>>({ logo: null, signature: null, hr_signature: null, letterhead: null });
@@ -70,7 +70,14 @@ export default function Settings() {
   if (isLoading || !data) return <PageSkeleton />;
   const s = data.settings;
   const bind = (k: Key) => ({ value: v[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value }) });
-  const img = (k: Img, label: string, hint: string, url: string | null) => (
+  const locked = (k: Img) => (k === "signature" || k === "hr_signature") && !user?.can_edit_signatures;
+  const img = (k: Img, label: string, hint: string, url: string | null) => locked(k) ? (
+    <Field label={label} hint={<span className="inline-flex items-center gap-1.5"><Lock className="size-3.5" />Only {data.signature_owner} can change signatures.</span>}>
+      <div className="grid place-items-center h-[120px] rounded-xl border border-white/[0.08] bg-[#fff] p-3">
+        {url ? <img src={url} alt={label} className="max-h-full max-w-full object-contain" /> : <span className="text-[13px] text-[#888]">No signature uploaded</span>}
+      </div>
+    </Field>
+  ) : (
     <Field label={label} className={k === "letterhead" ? "sm:col-span-2" : ""}>
       <FileDrop file={files[k]} onFile={(f) => setFiles({ ...files, [k]: f })} accept=".png,.jpg,.jpeg,.webp" label={url && !remove[k] ? "Replace image" : `Upload ${label.toLowerCase()}`} hint={hint} preview={!remove[k] ? url : null} />
       {url && !files[k] && <label className="mt-2 inline-flex items-center gap-2 text-[12.5px] text-fg-3 cursor-pointer"><input type="checkbox" className="accent-[#7c5cff]" checked={remove[k]} onChange={(e) => setRemove({ ...remove, [k]: e.target.checked })} /> Remove current</label>}

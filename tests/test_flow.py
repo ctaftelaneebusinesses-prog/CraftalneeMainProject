@@ -90,7 +90,7 @@ class FlowTest(unittest.TestCase):
         self.assertIsNone(s["user"])
         self.assertEqual(f.c.post("/api/auth/setup", json={}).status_code, 400)  # no CSRF header
         self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun Founder",
-                                           "email": "founder@craftlanee.test", "password": "founderpass"}))
+                                           "email": "craftlanee@gmail.com", "password": "founderpass"}))
         self.assertEqual(f.post("/api/auth/setup", {"name": "x"}).status_code, 409)
         self.assertEqual(self.ok(f.get("/api/auth/session"))["user"]["role"], "founder")
 

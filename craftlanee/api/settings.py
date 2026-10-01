@@ -5,7 +5,7 @@ from flask_login import current_user
 from ..defaults import (DEFAULT_INTERNSHIP_TERMS, DEFAULT_JOINING_BODY, DEFAULT_MOU_TERMS, DEFAULT_RELIEVING_BODY,
                         DEFAULT_OFFER_TERMS)
 from ..extensions import db
-from ..models import AuditLog, EmployeeDocument, JoiningLetter, OfferLetter, Payslip, RelievingLetter
+from ..models import SIGNATURE_OWNER, AuditLog, EmployeeDocument, JoiningLetter, OfferLetter, Payslip, RelievingLetter
 from ..security import employee_required, permission_required
 from ..richtext import sanitize_html
 from ..utils import IMAGE_EXTS, audit, clean, delete_file, get_settings, parse_date, save_upload
@@ -17,12 +17,13 @@ TEXT = {"company_name": 160, "tagline": 200, "address": 1000, "phone": 40, "emai
         "hr_name": 120, "hr_designation": 120}
 RICH = ("offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms")
 IMAGES = ("logo", "signature", "hr_signature", "letterhead")
+SIGNATURES = ("signature", "hr_signature")  # only User.can_edit_signatures may change these
 
 
 @bp.get("/settings")
 @permission_required("settings")
 def settings_get():
-    return ok(settings=S.company(get_settings(), full=True),
+    return ok(settings=S.company(get_settings(), full=True), signature_owner=SIGNATURE_OWNER,
               defaults={"offer_terms": DEFAULT_OFFER_TERMS, "internship_terms": DEFAULT_INTERNSHIP_TERMS,
                         "joining_body": DEFAULT_JOINING_BODY, "relieving_body": DEFAULT_RELIEVING_BODY,
                         "mou_terms": DEFAULT_MOU_TERMS})
@@ -33,6 +34,10 @@ def settings_get():
 def settings_save():
     s = get_settings()
     form = request.form
+    touches_signature = any((request.files.get(k) and request.files[k].filename)
+                            or form.get(f"remove_{k}") in ("1", "true") for k in SIGNATURES)
+    if touches_signature and not current_user.can_edit_signatures:
+        fail(f"Only the founder account {SIGNATURE_OWNER} can change signatures.", 403)
     for field, maxlen in TEXT.items():
         if field in form:
             setattr(s, field, clean(form, field, maxlen) or None)
@@ -62,7 +67,7 @@ def settings_save():
         elif form.get(f"remove_{key}") in ("1", "true"):
             old_files.append(getattr(s, attr))
             setattr(s, attr, None)
-    audit("updated company settings", "settings")
+    audit("updated company settings", "settings", "signatures changed" if touches_signature else None)
     db.session.commit()
     for path in old_files:
         delete_file(path)
