@@ -28,7 +28,7 @@ def user_payload(user):
         return None
     return {"id": user.id, "name": user.name, "email": user.email, "role": user.role,
             "is_admin": user.has_admin, "is_owner": user.is_founder, "permissions": sorted(user.perms),
-            "full_access": user.full_access, "can_edit_signatures": user.can_edit_signatures,
+            "full_access": user.full_access, "is_primary": user.is_primary,
             "employee": employee_brief(user.employee) if user.employee else None}
 
 

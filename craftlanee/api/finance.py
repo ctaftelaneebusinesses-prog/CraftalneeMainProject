@@ -105,7 +105,7 @@ def dashboard():
         departments=[{"name": k, "count": v} for k, v in departments.most_common()],
         recent_employees=[S.employee_brief(x) for x in recent],
         activity=[S.audit_entry(a) for a in AuditLog.query.order_by(AuditLog.created_at.desc()).limit(10)]
-        if can("settings") else [],
+        if current_user.is_primary else [],
         draft_months=drafts if can("payroll") else [],
         by_type=[{"type": t, "count": by_type.get(t, 0)} for t in EMPLOYMENT_TYPES if by_type.get(t)],
         by_role=[{"role": r, "count": c} for r, c in by_role.most_common(8)],

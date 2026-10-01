@@ -1,4 +1,4 @@
-"""Only the craftlanee@gmail.com founder login may upload, replace or remove the founder / HR signatures."""
+"""Only the main founder login (craftlanee@gmail.com) may change signatures or read the audit log."""
 import io
 import os
 import shutil
@@ -33,24 +33,24 @@ class SignaturesTest(unittest.TestCase):
         owner = Api(self.app)
         me = self.ok(owner.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun",
                                                     "email": "CraftLanee@Gmail.com", "password": "founderpass"}))["user"]
-        self.assertTrue(me["can_edit_signatures"])
+        self.assertTrue(me["is_primary"])
         self.ok(owner.post("/api/auth/admins", {"name": "Co Founder", "email": "co@c.in", "password": "password123"}))
         other = Api(self.app)
         me = self.ok(other.post("/api/auth/login", {"email": "co@c.in", "password": "password123"}))["user"]
         self.assertTrue(me["is_owner"])
-        self.assertFalse(me["can_edit_signatures"])
+        self.assertFalse(me["is_primary"])
 
         base = {"company_name": "CraftLanee", "hr_name": "Hari", "hr_designation": "Manager"}
         for key in ("signature", "hr_signature"):
             r = other.post("/api/settings", form=base | {key: (io.BytesIO(PNG), "s.png")})
             self.assertEqual(r.status_code, 403, key)
-            self.assertIn("craftlanee@gmail.com", r.get_json()["error"])
+            self.assertEqual(r.get_json()["error"], "Signatures are locked.")  # the owner's email isn't revealed
         self.assertIsNone(self.ok(owner.get("/api/settings"))["settings"]["signature_url"])
 
         self.ok(owner.post("/api/settings", form=base | {"signature": (io.BytesIO(PNG), "s.png"),
                                                          "hr_signature": (io.BytesIO(PNG), "h.png")}))
         st = self.ok(owner.get("/api/settings"))
-        self.assertEqual(st["signature_owner"], "craftlanee@gmail.com")
+        self.assertNotIn("craftlanee@gmail.com", other.get("/api/settings").get_data(as_text=True))
         self.assertIsNotNone(st["settings"]["signature_url"])
 
         # the other founder can still save everything else, but not remove a signature
@@ -60,6 +60,13 @@ class SignaturesTest(unittest.TestCase):
         self.assertIsNotNone(self.ok(owner.get("/api/settings"))["settings"]["hr_signature_url"])
         self.ok(owner.post("/api/settings", form=base | {"remove_hr_signature": "true"}))
         self.assertIsNone(self.ok(owner.get("/api/settings"))["settings"]["hr_signature_url"])
+
+        # audit log: only the main founder sees what everyone (other founders included) did
+        entries = self.ok(owner.get("/api/audit"))["entries"]
+        self.assertTrue(any(e["user_name"].startswith("Co Founder") for e in entries))
+        self.assertTrue(self.ok(owner.get("/api/dashboard"))["activity"])
+        self.assertEqual(other.get("/api/audit").status_code, 403)
+        self.assertEqual(self.ok(other.get("/api/dashboard"))["activity"], [])
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Activity, Building2, Check, FileText, KeyRound, Lock, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
+import { Activity, Building2, Check, FileText, KeyRound, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { CompanySettings } from "@/lib/types";
@@ -41,7 +41,7 @@ export default function Settings() {
   const { session, setSession, user } = useSession();
   const [params] = useSearchParams();
   const welcome = params.get("welcome");
-  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string>; signature_owner: string }>("/settings") });
+  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string>}>("/settings") });
   const [richTab, setRichTab] = useState<RichKey>("offer_terms");
   const [v, setV] = useState<Record<Key, string>>(Object.fromEntries(TEXT.map((k) => [k, ""])) as Record<Key, string>);
   const [files, setFiles] = useState<Record<Img, File | null>>({ logo: null, signature: null, hr_signature: null, letterhead: null });
@@ -70,9 +70,9 @@ export default function Settings() {
   if (isLoading || !data) return <PageSkeleton />;
   const s = data.settings;
   const bind = (k: Key) => ({ value: v[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value }) });
-  const locked = (k: Img) => (k === "signature" || k === "hr_signature") && !user?.can_edit_signatures;
+  const locked = (k: Img) => (k === "signature" || k === "hr_signature") && !user?.is_primary;
   const img = (k: Img, label: string, hint: string, url: string | null) => locked(k) ? (
-    <Field label={label} hint={<span className="inline-flex items-center gap-1.5"><Lock className="size-3.5" />Only {data.signature_owner} can change signatures.</span>}>
+    <Field label={label}>
       <div className="grid place-items-center h-[120px] rounded-xl border border-white/[0.08] bg-[#fff] p-3">
         {url ? <img src={url} alt={label} className="max-h-full max-w-full object-contain" /> : <span className="text-[13px] text-[#888]">No signature uploaded</span>}
       </div>
@@ -87,7 +87,7 @@ export default function Settings() {
   return (
     <>
       <PageHeader eyebrow="Settings" title="Company settings" subtitle="These details appear automatically on every generated PDF."
-        actions={<><Button icon={<Activity />} to="/settings/audit">Audit log</Button><Button icon={<KeyRound />} to="/account">Password</Button></>} />
+        actions={<>{user?.is_primary && <Button icon={<Activity />} to="/settings/audit">Audit log</Button>}<Button icon={<KeyRound />} to="/account">Password</Button></>} />
 
       {welcome && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 rounded-2xl border border-brand-500/30 bg-gradient-to-r from-brand-500/15 via-flame-500/5 to-transparent px-5 py-4 mb-6">

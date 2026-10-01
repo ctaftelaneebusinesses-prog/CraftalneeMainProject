@@ -224,7 +224,7 @@ export default function Dashboard() {
 
       {/* activity + team */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {can(user, "settings") && <Card className="xl:col-span-2">
+        {user?.is_primary && <Card className="xl:col-span-2">
           <CardHeader icon={<Activity />} title="Recent activity" subtitle="Latest actions across the company" action={<Link to="/settings/audit" className="text-[12.5px] text-fg-3 hover:text-fg">Audit log</Link>} />
           {data.activity.length ? (
             <ol className="relative px-6 pb-5">

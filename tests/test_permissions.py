@@ -35,7 +35,7 @@ class PermissionsTest(unittest.TestCase):
 
     def test_partial_access(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         people = {}
         for name, email in (("Hari HR", "h@c.in"), ("Priya Payroll", "p@c.in"), ("Sam Staff", "s@c.in")):

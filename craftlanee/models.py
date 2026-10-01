@@ -55,8 +55,9 @@ PERMISSIONS = {
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
 ALL_PERMISSIONS = list(PERMISSIONS)
-# The one founder login allowed to upload, replace or remove the founder / HR signatures on PDFs.
-SIGNATURE_OWNER = (os.environ.get("CRAFTLANEE_SIGNATURE_OWNER") or "craftlanee@gmail.com").strip().lower()
+# The main founder login: the only one that may change the founder / HR signatures on PDFs and read the
+# audit log (what the other founders and admins did). Not shown anywhere in the app.
+PRIMARY_FOUNDER = (os.environ.get("CRAFTLANEE_PRIMARY_FOUNDER") or "craftlanee@gmail.com").strip().lower()
 
 
 def now():
@@ -123,8 +124,8 @@ class User(UserMixin, TimestampMixin, db.Model):
         return {p for p in granted if p in PERMISSIONS} if isinstance(granted, list) else set()
 
     @property
-    def can_edit_signatures(self):
-        return self.is_founder and (self.email or "").lower() == SIGNATURE_OWNER
+    def is_primary(self):
+        return self.is_founder and (self.email or "").lower() == PRIMARY_FOUNDER
 
     @property
     def full_access(self):

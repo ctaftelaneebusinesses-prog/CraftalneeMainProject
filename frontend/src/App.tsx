@@ -104,7 +104,7 @@ export default function App() {
           <Route path="/finance/invoices/:id/edit" element={founder(<InvoiceEditor />, "finance")} />
           <Route path="/followups" element={founder(<Followups />, "followups")} />
           <Route path="/settings" element={founder(<Settings />, "settings")} />
-          <Route path="/settings/audit" element={founder(<AuditLog />, "settings")} />
+          <Route path="/settings/audit" element={user?.is_primary ? <AuditLog /> : <Navigate to="/dashboard" replace />} />
           {/* employee */}
           <Route path="/me" element={employee(<PortalHome />)} />
           <Route path="/me/profile" element={employee(<PortalProfile />)} />

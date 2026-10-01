@@ -34,7 +34,7 @@ class DeleteTest(unittest.TestCase):
 
     def test_delete_letters_and_mous(self):
         f = Api(self.app)
-        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        self.ok(f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                            "password": "founderpass"}))
         emp = self.ok(f.post("/api/employees", form={"full_name": "Greeshmitha", "monthly_salary": "20000",
                                                      "roles": '["Developer"]', "joining_date": "2026-02-12"}), 201)["employee"]
@@ -67,9 +67,9 @@ class DeleteTest(unittest.TestCase):
 
     def test_reopen_payroll_removes_expense(self):
         f = Api(self.app)
-        f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "a@c.in",
+        f.post("/api/auth/setup", {"company_name": "CraftLanee", "name": "Arjun", "email": "craftlanee@gmail.com",
                                    "password": "founderpass"})  # no-op if the other test ran first
-        self.ok(f.post("/api/auth/login", {"email": "a@c.in", "password": "founderpass"}))
+        self.ok(f.post("/api/auth/login", {"email": "craftlanee@gmail.com", "password": "founderpass"}))
         self.ok(f.post("/api/employees", form={"full_name": "Pay Me", "monthly_salary": "30000",
                                                "roles": '["Dev"]'}), 201)
         self.ok(f.post("/api/payroll", {"month": "2026-09"}), 201)
