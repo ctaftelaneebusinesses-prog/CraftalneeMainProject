@@ -301,8 +301,12 @@ def section(title, st, number=None):
 def kv_table(rows, st, label_w=58 * mm):
     data = []
     for k, v in rows:
+        if v is None or (isinstance(v, str) and v.strip() in ("", "—")):
+            continue  # details that weren't filled in are left out, not printed as "—"
         value = v if isinstance(v, str) and v.startswith("<rich>") else escape(str(v or "—"))
         data.append([P(k, st["label"]), M(value.replace("<rich>", ""), st["value"])])
+    if not data:
+        return Spacer(1, 0)
     t = Table(data, colWidths=[label_w, CONTENT_W - label_w])
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), SOFT), ("LINEBELOW", (0, 0), (-1, -2), 0.5, LINE),
@@ -396,9 +400,13 @@ def _months_between(a, b):
     return max(1, (b.year - a.year) * 12 + (b.month - a.month) + (1 if b.day >= a.day else 0))
 
 
+def _pct(value):
+    return f"{float(value):g}%"
+
+
 def _salary(amount, per="per month"):
     if not amount:
-        return "Unpaid"
+        return None  # zero / blank pay isn't printed
     return (f"<rich>{money(amount)} {per}<br/>"
             f"<font size='8' color='#5E6478'>({escape(amount_in_words(amount))})</font>")
 
@@ -428,7 +436,8 @@ def offer_letter(letter, settings, target):
         rows = [("Internship role", role), ("Department", letter.department),
                 ("Start date", long_date(letter.joining_date)), ("End date", long_date(letter.end_date)),
                 ("Duration", f"{months} month{'s' if months != 1 else ''}" if months else "—"),
-                ("Monthly stipend", _salary(letter.salary)),
+                ("Monthly stipend", _salary(letter.salary)) if letter.pay_basis != "percentage"
+                else ("Compensation", f"{_pct(letter.commission_percent)} per product" if letter.commission_percent else None),
                 ("Mentor / reporting to", letter.reporting_person), ("Work location", letter.work_location)]
         story += [section("Internship Details", st, 1), kv_table(rows, st)]
     else:
@@ -464,7 +473,7 @@ def joining_letter(letter, settings, target):
     name = letter.employee_name or "Employee"
     role = letter.designation or "—"
     story = [ref_row(letter.number, letter.letter_date, st), Spacer(1, 5 * mm),
-             P("To,", st["small"]), P(name, st["strong"]), P(f"Employee ID: {letter.emp_code or '—'}", st["plain"]),
+             P("To,", st["small"]), P(name, st["strong"]), *([P(f"Employee ID: {letter.emp_code}", st["plain"])] if letter.emp_code else []),
              Spacer(1, 5 * mm), M(f"Subject: Confirmation of Joining — {escape(role)}", st["subject"]),
              Spacer(1, 4 * mm), P(f"Dear {name.split()[0]},", st["plain"]), Spacer(1, 2.5 * mm)]
     story += rich(letter.body, st)
@@ -495,7 +504,7 @@ def relieving_letter(letter, settings, target):
     role = letter.designation or "—"
     story = [ref_row(letter.number, letter.letter_date, st), Spacer(1, 5 * mm),
              P("TO WHOMSOEVER IT MAY CONCERN", st["tag"]), Spacer(1, 3 * mm),
-             P("To,", st["small"]), P(name, st["strong"]), P(f"Employee ID: {letter.emp_code or '—'}", st["plain"]),
+             P("To,", st["small"]), P(name, st["strong"]), *([P(f"Employee ID: {letter.emp_code}", st["plain"])] if letter.emp_code else []),
              Spacer(1, 5 * mm), M(f"Subject: Relieving Letter — {escape(role)}", st["subject"]),
              Spacer(1, 4 * mm), P(f"Dear {name.split()[0]},", st["plain"]), Spacer(1, 2.5 * mm)]
     story += rich(letter.body, st)

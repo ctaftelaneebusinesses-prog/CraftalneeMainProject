@@ -59,9 +59,17 @@ def _apply_offer(l, d):
     l.reporting_person = clean(d, "reporting_person", 120) or None
     l.end_date = parse_date(d.get("end_date"))
     l.letter_type = "internship" if (d.get("letter_type") == "internship" or l.employment_type in STIPEND_TYPES) else "employment"
+    l.pay_basis = "percentage" if l.letter_type == "internship" and d.get("pay_basis") == "percentage" else "stipend"
+    pct = to_decimal(d.get("commission_percent"))
+    l.commission_percent = pct if l.pay_basis == "percentage" and pct > 0 else None
+    if l.pay_basis == "percentage":
+        l.salary = 0
     l.intro = sanitize_html(d.get("intro"))
     l.terms = sanitize_html(d.get("terms"))
-    return [] if l.candidate_name else ["Employee name is required."]
+    errors = [] if l.candidate_name else ["Employee name is required."]
+    if pct > 100:
+        errors.append("Percentage can't be more than 100.")
+    return errors
 
 
 def _apply_joining(l, d):
@@ -113,6 +121,7 @@ def _draft(kind, emp):
         intern = emp.employment_type in STIPEND_TYPES
         return base | {"candidate_name": emp.full_name, "address": emp.address, "end_date": iso(emp.end_date),
                        "letter_type": "internship" if intern else "employment",
+                       "pay_basis": "stipend", "commission_percent": None,
                        "intro": fill_template(DEFAULT_INTERNSHIP_INTRO if intern else DEFAULT_OFFER_INTRO, emp, s),
                        "terms": (s.internship_terms or DEFAULT_INTERNSHIP_TERMS) if intern
                        else (s.offer_terms or DEFAULT_OFFER_TERMS)}

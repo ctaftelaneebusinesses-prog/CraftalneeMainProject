@@ -288,6 +288,9 @@ class OfferLetter(TimestampMixin, db.Model):
     reporting_person = db.Column(db.String(120))
     end_date = db.Column(db.Date)
     letter_type = db.Column(db.String(20), default="employment")  # employment | internship
+    # Internships are paid either a monthly stipend (salary) or a percentage per product.
+    pay_basis = db.Column(db.String(20), default="stipend", nullable=False)  # stipend | percentage
+    commission_percent = db.Column(db.Numeric(5, 2))
     intro = db.Column(db.Text)
     terms = db.Column(db.Text)
     file_path = db.Column(db.String(255))

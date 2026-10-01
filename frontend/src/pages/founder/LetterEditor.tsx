@@ -115,7 +115,28 @@ export default function LetterEditor() {
                 <Field label="Resignation received" optional><Input type="date" {...bind("resignation_date")} /></Field>
                 <Field label="Last working day"><Input type="date" {...bind("last_working_day")} required /></Field>
               </>) : (<>
-                <Field label={intern ? "Monthly stipend" : "Monthly salary"}><MoneyInput value={v("salary")} onChange={(x) => set("salary", x)} /></Field>
+                {intern && (
+                  <Field label="Pay type" className="sm:col-span-2">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {([["stipend", "Stipend", "Fixed amount per month"], ["percentage", "Percentage", "% per product"]] as const).map(([val, label, sub]) => (
+                        <button key={val} type="button" onClick={() => set("pay_basis", val)}
+                          className={cn("rounded-xl border px-4 py-2.5 text-left transition-all", (v("pay_basis") || "stipend") === val ? "border-brand-400/60 bg-brand-500/[0.08]" : "border-white/[0.08] hover:border-white/20")}>
+                          <div className="text-[13.5px] font-medium">{label}</div><div className="text-[12px] text-fg-4">{sub}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                )}
+                {intern && v("pay_basis") === "percentage" ? (
+                  <Field label="Percentage per product" hint="Leave empty to keep it off the letter.">
+                    <div className="relative">
+                      <Input inputMode="decimal" value={v("commission_percent")} onChange={(e) => set("commission_percent", e.target.value.replace(/[^\d.]/g, ""))} placeholder="e.g. 10" className="pr-9" />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none">%</span>
+                    </div>
+                  </Field>
+                ) : (
+                  <Field label={intern ? "Monthly stipend" : "Monthly salary"} hint="Leave at 0 to keep it off the letter."><MoneyInput value={v("salary")} onChange={(x) => set("salary", x)} /></Field>
+                )}
                 <Field label={intern ? "Mentor / reporting to" : "Reporting to"}><Input {...bind("reporting_person")} /></Field>
                 <Field label="Work location"><Input {...bind("work_location")} /></Field>
               </>)}

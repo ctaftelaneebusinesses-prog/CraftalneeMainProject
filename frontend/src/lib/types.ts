@@ -134,6 +134,8 @@ export interface OfferLetter extends LetterBase {
   reporting_person: string | null;
   end_date: string | null;
   letter_type: "employment" | "internship";
+  pay_basis: "stipend" | "percentage";   // internships: monthly stipend or % per product
+  commission_percent: number | null;
   intro: string;
   terms: string;
 }

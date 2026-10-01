@@ -128,6 +128,8 @@ def offer_letter(l):
             "salary": money(l.salary), "employment_type": l.employment_type,
             "work_location": l.work_location, "reporting_person": l.reporting_person,
             "end_date": iso(l.end_date), "letter_type": l.letter_type or "employment",
+            "pay_basis": l.pay_basis or "stipend",
+            "commission_percent": float(l.commission_percent) if l.commission_percent is not None else None,
             "intro": l.intro, "terms": l.terms,
             "archived": l.archived, "created_at": iso(l.created_at),
             "file_url": file_url("offer", l)}
