@@ -1,5 +1,6 @@
 """Offer letters, joining letters, MOUs and the Document Center."""
 import io
+import re
 from collections import Counter
 from datetime import date, datetime, timedelta
 
@@ -33,6 +34,28 @@ KINDS = {
 def _prefix(kind, letter_type=None):
     """Internship offers get their own series (CL-INTERN-…) so they never share numbers with job offers."""
     return "INTERN" if kind == "offer" and letter_type == "internship" else KINDS[kind]["prefix"]
+
+
+def _existing(model, prefix, emp_id):
+    """This person's latest letter in this series, if any (one letter per person per series)."""
+    return (model.query.filter(model.employee_id == emp_id, model.number.like(f"CL-{prefix}-%"))
+            .order_by(model.id.desc()).first())
+
+
+def _letter_number(model, prefix, emp, existing=None):
+    """The person's letter number follows their own ID: intern CL-INT-0002 -> CL-INTERN-<year>-0002.
+
+    Falls back to the next number in the series if that one already belongs to someone else (e.g. a
+    full-timer and a part-timer whose IDs share digits)."""
+    m = re.search(r"(\d+)$", emp.emp_code or "")
+    if m:
+        number = f"CL-{prefix}-{date.today().year}-{int(m.group(1)):04d}"
+        holder = model.query.filter_by(number=number).first()
+        if holder is None or (existing is not None and holder.id == existing.id):
+            return number
+    if existing is not None:
+        return existing.number
+    return next_doc_number(model, prefix)
 
 
 def _kind(kind):
@@ -165,7 +188,13 @@ def letters_preview(kind):
     d = body()
     letter = k["model"](employee_id=int(d.get("employee_id") or 0) or None)
     APPLY[kind](letter, d)
-    letter.number = clean(d, "number", 40) or next_doc_number(k["model"], _prefix(kind, getattr(letter, "letter_type", None)))
+    if not clean(d, "number", 40):
+        emp = db.session.get(Employee, letter.employee_id or 0)
+        prefix = _prefix(kind, getattr(letter, "letter_type", None))
+        letter.number = (_letter_number(k["model"], prefix, emp, _existing(k["model"], prefix, emp.id)) if emp
+                         else next_doc_number(k["model"], prefix))
+    else:
+        letter.number = clean(d, "number", 40)
     return _pdf_response(k["builder"], letter, f"{letter.number}-preview.pdf")
 
 
@@ -190,10 +219,13 @@ def letters_draft(kind):
     k = _kind(kind)
     emp = get_or_404(Employee, request.args.get("employee_id", type=int) or 0, "Employee")
     draft = _draft(kind, emp)
-    previews = ({t: next_doc_number(k["model"], _prefix(kind, t)) for t in ("employment", "internship")}
-                if kind == "offer" else {})
-    return ok(draft=draft, number_preview=next_doc_number(k["model"], _prefix(kind, draft.get("letter_type"))),
-              number_previews=previews,
+
+    def number(letter_type=None):
+        prefix = _prefix(kind, letter_type)
+        return _letter_number(k["model"], prefix, emp, _existing(k["model"], prefix, emp.id))
+
+    previews = {t: number(t) for t in ("employment", "internship")} if kind == "offer" else {}
+    return ok(draft=draft, number_preview=number(draft.get("letter_type")), number_previews=previews,
               employee=S.employee_brief(emp))
 
 
@@ -203,13 +235,22 @@ def letters_create(kind):
     k = _kind(kind)
     d = body()
     emp = get_or_404(Employee, int(d.get("employee_id") or 0), "Employee")
-    letter = k["model"](employee_id=emp.id)
+    letter = k["model"](employee_id=emp.id)  # not added to the session until we know it's a new letter
     fail_if(APPLY[kind](letter, d))
-    letter.number = next_doc_number(k["model"], _prefix(kind, getattr(letter, "letter_type", None)))
-    db.session.add(letter)
+    prefix = _prefix(kind, getattr(letter, "letter_type", None))
+    existing = _existing(k["model"], prefix, emp.id)
+    if existing is not None:
+        # Same person, same kind of letter: reissue it under their number instead of starting a new one.
+        letter = existing
+        APPLY[kind](letter, d)
+        letter.archived = False
+    letter.number = _letter_number(k["model"], prefix, emp, existing)
+    if existing is None:
+        db.session.add(letter)
     db.session.flush()
     _render(letter, k["builder"], k["folder"])
-    audit(f"generated {k['label']} {letter.number} for {emp.full_name}", "document")
+    audit(f"{'reissued' if existing is not None else 'generated'} {k['label']} {letter.number} for {emp.full_name}",
+          "document")
     if kind == "relieving" and str(d.get("mark_inactive", "")).lower() in ("1", "true") and emp.status == "active":
         emp.status = "inactive"          # relieved: off future payrolls, portal login stops working
         emp.end_date = emp.end_date or letter.last_working_day
