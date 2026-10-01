@@ -11,15 +11,18 @@ import type { Lead } from "@/lib/types";
 
 type Feed = { due: Lead[]; later_today: Lead[] };
 
-const SEEN_KEY = "craftlanee.reminders.seen";
+const SEEN_KEY = "craftlanee.reminders.seen";      // popped up already
+const VIEWED_KEY = "craftlanee.reminders.viewed";  // looked at in the bell → no longer counted on the badge
 const POPUP_WINDOW = 12 * 3600_000;  // don't pop up reminders older than this (the bell still lists them)
 
-function loadSeen(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]")); } catch { return new Set(); }
+function loadSeen(key = SEEN_KEY): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); }
 }
-function saveSeen(seen: Set<string>) {
-  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ }
+function saveSeen(seen: Set<string>, key = SEEN_KEY) {
+  try { localStorage.setItem(key, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ }
 }
+/** One key per reminder: a new date or time for the same lead counts as a new reminder. */
+const reminderKey = (l: Lead) => `${l.id}@${l.remind_at}`;
 
 export type PopupState = "on" | "off" | "blocked" | "unsupported";
 export function popupState(): PopupState {
@@ -50,7 +53,7 @@ function useReminderFeed() {
     const due = query.data?.due ?? [];
     let changed = false;
     for (const l of due) {
-      const key = `${l.id}@${l.remind_at}`;
+      const key = reminderKey(l);
       if (seen.current.has(key)) continue;
       seen.current.add(key);
       changed = true;
@@ -74,9 +77,20 @@ export function ReminderBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [popups, setPopups] = useState<PopupState>(popupState);
+  const [viewed, setViewed] = useState(() => loadSeen(VIEWED_KEY));
   const box = useRef<HTMLDivElement>(null);
   const due = feed?.due ?? [];
   const later = feed?.later_today ?? [];
+  const unseen = due.filter((l) => !viewed.has(reminderKey(l))).length;
+
+  // Opening the bell marks everything due right now as seen; the badge only counts reminders that came due since.
+  const markViewed = () => {
+    if (!unseen) return;
+    const next = new Set(viewed);
+    due.forEach((l) => next.add(reminderKey(l)));
+    saveSeen(next, VIEWED_KEY);
+    setViewed(next);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -99,9 +113,9 @@ export function ReminderBell() {
 
   return (
     <div ref={box} className="relative">
-      <button onClick={() => { setOpen((o) => !o); setPopups(popupState()); }} className="btn btn-ghost btn-icon relative" aria-label={`Follow-up reminders${due.length ? `, ${due.length} due` : ""}`} title="Follow-up reminders">
-        {due.length ? <BellRing className="text-warn" /> : <Bell />}
-        {due.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10.5px] font-bold text-on-accent" style={{ background: "var(--grad)" }}>{due.length}</span>}
+      <button onClick={() => { setOpen((o) => !o); setPopups(popupState()); markViewed(); }} className="btn btn-ghost btn-icon relative" aria-label={`Follow-up reminders${unseen ? `, ${unseen} new` : ""}`} title="Follow-up reminders">
+        {unseen ? <BellRing className="text-warn" /> : <Bell />}
+        {unseen > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10.5px] font-bold text-on-accent" style={{ background: "var(--grad)" }}>{unseen}</span>}
       </button>
       <AnimatePresence>
         {open && (
