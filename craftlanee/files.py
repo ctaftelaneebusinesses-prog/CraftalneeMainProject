@@ -14,7 +14,7 @@ from flask_login import current_user, login_required
 
 from .extensions import db
 from .models import (AnnouncementPhoto, CompanySettings, Employee, EmployeeDocument, Expense, Invoice,
-                     JoiningLetter, Mou, OfferLetter, Payslip, RelievingLetter)
+                     JoiningLetter, Mou, OfferLetter, Payslip, ProjectDocument, RelievingLetter)
 from .security import can_view_document
 from .utils import read_file
 
@@ -52,6 +52,9 @@ def _resolve(kind, obj_id):
     if kind == "announcement":
         r = db.session.get(AnnouncementPhoto, obj_id)
         return r, r and r.file_path, r and r.original_name, None
+    if kind == "project":
+        r = db.session.get(ProjectDocument, obj_id)
+        return r, r and r.file_path, r and r.original_name, None
     if kind == "invoice":
         r = db.session.get(Invoice, obj_id)
         return r, r and r.file_path, r and f"{r.number}.pdf", None
@@ -83,7 +86,8 @@ def serve(kind, obj_id):
         abort(404)
     # Logos and active colleagues' photos are visible to every signed-in user (sidebar, team tree).
     public = (kind == "logo" or (kind == "photo" and getattr(record, "status", "") == "active")
-              or (kind == "announcement" and record.announcement.visible_to(current_user.employee_id)))
+              or (kind == "announcement" and record.announcement.visible_to(current_user.employee_id))
+              or (kind == "project" and current_user.employee_id and record.visible_to(current_user.employee_id)))
     if not public and not can_view_document(kind) and not _employee_may_access(kind, record, owner):
         abort(404)  # don't reveal that the record exists
     data = read_file(rel)

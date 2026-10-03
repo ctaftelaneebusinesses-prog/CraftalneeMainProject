@@ -46,7 +46,7 @@ KIND_AREAS = {
     "offer": ("documents", "employees"), "joining": ("documents", "employees"),
     "relieving": ("documents", "employees"), "mou": ("documents",),
     "payslip": ("payroll", "employees"), "doc": ("employees",), "photo": ("employees",), "resume": ("employees",),
-    "receipt": ("finance",), "invoice": ("finance",), "announcement": ("announcements",),
+    "receipt": ("finance",), "invoice": ("finance",), "announcement": ("announcements",), "project": ("projects",),
     "logo": ("settings",), "signature": ("settings",), "hr_signature": ("settings",), "letterhead": ("settings",),
 }
 

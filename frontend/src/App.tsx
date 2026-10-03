@@ -35,6 +35,8 @@ const Leaves = lazy(() => import("@/pages/Leaves"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const TeamTree = lazy(() => import("@/pages/TeamTree"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
+const Projects = lazy(() => import("@/pages/Projects"));
+const Complaints = lazy(() => import("@/pages/Complaints"));
 const PortalHome = lazy(() => import("@/pages/portal/Home"));
 const PortalProfile = lazy(() => import("@/pages/portal/Profile"));
 const PortalDocuments = lazy(() => import("@/pages/portal/Documents"));
@@ -78,6 +80,8 @@ export default function App() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/team" element={<TeamTree />} />
           <Route path="/announcements" element={<Announcements />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/complaints" element={<Complaints />} />
           {/* founder */}
           <Route path="/dashboard" element={founder(<Dashboard />)} />
           <Route path="/employees" element={founder(<Employees />, "employees")} />

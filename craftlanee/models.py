@@ -41,6 +41,9 @@ LEAD_CLOSED = {"won", "lost"}                                          # no furt
 LEAD_SOURCES = ["Referral", "Website", "Social media", "Cold call", "Event", "Existing client", "Other"]
 LEAD_ACTIVITY_KINDS = ["Call", "Meeting", "Email", "WhatsApp", "Note"]
 REMINDER_DEFAULT_TIME = "09:00"
+COMPLAINT_CATEGORIES = ["Workplace", "Work & tasks", "Project", "Pay & stipend", "Harassment or behaviour",
+                        "Facilities & equipment", "Other"]
+COMPLAINT_STATUSES = ["open", "in_review", "resolved"]
 
 # Areas of the admin console the founder can grant to an employee, one by one.
 PERMISSIONS = {
@@ -51,6 +54,8 @@ PERMISSIONS = {
     "leaves": ("Leaves & holidays", "Approve or reject leave, add leave for others, manage holidays and imports"),
     "team": ("Team & tasks", "Rearrange the team tree, assign tasks to anyone and see every task"),
     "announcements": ("Announcements", "Post announcements with links and photos to everyone or chosen people"),
+    "projects": ("Project documents", "Upload project documents and share them with everyone or with chosen people"),
+    "complaints": ("Complaints", "Read complaints raised by the team, reply to them and mark them resolved"),
     "followups": ("Client follow-ups", "Clients and leads, their status, next follow-up dates and call / meeting notes"),
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
@@ -756,3 +761,53 @@ class LeadActivity(TimestampMixin, db.Model):
     author_name = db.Column(db.String(120))
 
     lead = db.relationship("Lead", back_populates="activities")
+
+
+project_document_recipients = db.Table(
+    "project_document_recipients",
+    db.Column("document_id", db.Integer, db.ForeignKey("project_documents.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("employee_id", db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class ProjectDocument(TimestampMixin, db.Model):
+    """A project brief, spec or other file shared with everyone (audience "all") or chosen people."""
+    __tablename__ = "project_documents"
+    id = db.Column(db.Integer, primary_key=True)
+    project = db.Column(db.String(160), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    link = db.Column(db.String(1000))            # e.g. Figma / Google Drive, optional
+    file_path = db.Column(db.String(255))
+    original_name = db.Column(db.String(255))
+    audience = db.Column(db.String(20), default="all", nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    author_name = db.Column(db.String(120))
+
+    recipients = db.relationship("Employee", secondary=project_document_recipients, lazy="selectin")
+
+    def visible_to(self, employee_id):
+        return self.audience == "all" or any(e.id == employee_id for e in self.recipients)
+
+
+class Complaint(TimestampMixin, db.Model):
+    """Raised by anyone on the team; read by the founder and admins with the "complaints" area."""
+    __tablename__ = "complaints"
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(40), default="Other", nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    anonymous = db.Column(db.Boolean, default=False, nullable=False)     # name hidden from whoever reads it
+    founder_only = db.Column(db.Boolean, default=False, nullable=False)  # e.g. about the project manager
+    status = db.Column(db.String(20), default="open", nullable=False, index=True)
+    response = db.Column(db.Text)
+    responded_by = db.Column(db.String(120))
+    responded_at = db.Column(db.DateTime)
+    resolved_at = db.Column(db.DateTime)
+
+    employee = db.relationship("Employee", lazy="selectin")
+
+    @property
+    def code(self):
+        return f"CMP-{self.id:04d}" if self.id else ""

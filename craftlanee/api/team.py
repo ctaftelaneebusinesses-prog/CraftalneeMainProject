@@ -21,6 +21,7 @@ from ..utils import audit, clean, get_settings, parse_date
 from . import common as S
 from .common import bp, body, fail, get_or_404, ok
 from .announcements import unread_count
+from .complaints import open_count as complaints_open_count
 from .followups import due_count as followups_due_count
 from .employees import descendants
 
@@ -314,4 +315,5 @@ def nav_counts():
     data["can_assign"] = bool(assignable_ids(current_user))
     data["unread_announcements"] = unread_count(current_user)
     data["followups_due"] = followups_due_count() if current_user.can("followups") else 0
+    data["open_complaints"] = complaints_open_count(current_user)
     return ok(**data)

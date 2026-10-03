@@ -46,7 +46,7 @@ export interface EmployeeFull extends EmployeeBrief {
 }
 
 /** Console areas the founder can grant (mirrors PERMISSIONS in craftlanee/models.py). */
-export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements" | "followups";
+export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements" | "followups" | "projects" | "complaints";
 export interface AreaInfo { key: Area; label: string; description: string }
 
 export interface LoginInfo { email: string; active: boolean; is_admin: boolean; permissions: Area[]; last_login_at: string | null }
@@ -364,7 +364,7 @@ export interface TaskDetail extends Task {
 }
 
 export interface OrgNode extends EmployeeBrief { open_tasks: number; on_leave: boolean }
-export interface NavCounts { my_open_tasks: number; pending_leaves: number; assigned_open: number; my_pending_leaves: number; can_assign: boolean; unread_announcements: number; followups_due: number }
+export interface NavCounts { my_open_tasks: number; pending_leaves: number; assigned_open: number; my_pending_leaves: number; can_assign: boolean; unread_announcements: number; followups_due: number; open_complaints: number }
 
 export type InvoiceStatus = "unpaid" | "paid" | "cancelled";
 export interface InvoiceLine { description: string; qty: number; rate: number; amount: number }
@@ -445,4 +445,20 @@ export interface FollowupCounts { overdue: number; today: number; week: number; 
 export interface EmailReminderSettings {
   enabled: boolean; ready: boolean; smtp_host: string | null; smtp_port: number; smtp_user: string | null; smtp_from: string | null;
   password_set: boolean; app_url: string; recipients: { name: string; email: string }[];
+}
+
+// Project documents (craftlanee/api/projects.py)
+export interface ProjectDoc {
+  id: number; project: string; title: string; description: string | null; link: string | null;
+  file_name: string | null; file_url: string | null; audience: "all" | "selected";
+  recipients: { id: number; full_name: string }[]; author_name: string | null; created_at: string; updated_at: string;
+}
+
+// Complaints box (craftlanee/api/complaints.py)
+export type ComplaintStatus = "open" | "in_review" | "resolved";
+export interface Complaint {
+  id: number; code: string; subject: string; category: string; message: string; anonymous: boolean; founder_only: boolean;
+  status: ComplaintStatus; response: string | null; responded_by: string | null; responded_at: string | null;
+  resolved_at: string | null; created_at: string; updated_at: string; mine: boolean;
+  raised_by: EmployeeBrief | null;   // null when anonymous (except to the person who raised it)
 }

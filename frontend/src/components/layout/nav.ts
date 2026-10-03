@@ -1,5 +1,5 @@
 import { Banknote, BriefcaseBusiness, CalendarDays, DoorOpen, FileSignature, FileText, FolderOpen, Handshake, LayoutDashboard,
-  ListTodo, Megaphone, Network, PhoneCall, Receipt, ReceiptText, Scale, Send, Settings, TrendingDown, TrendingUp, User, UserPlus, Users, Wallet,
+  FolderKanban, ListTodo, Megaphone, MessageSquareWarning, Network, PhoneCall, Receipt, ReceiptText, Scale, Send, Settings, TrendingDown, TrendingUp, User, UserPlus, Users, Wallet,
   type LucideIcon } from "lucide-react";
 import type { Area, NavCounts, User as SessionUser } from "@/lib/types";
 import { can } from "@/lib/session";
@@ -18,6 +18,8 @@ const ADMIN_NAV: NavGroup[] = [
     { to: "/tasks", label: "Tasks", icon: ListTodo, badge: "my_open_tasks" },
     { to: "/leaves", label: "Leaves", icon: CalendarDays, badge: "pending_leaves" },
     { to: "/announcements", label: "Announcements", icon: Megaphone, badge: "unread_announcements" },
+    { to: "/projects", label: "Project documents", icon: FolderKanban },
+    { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, badge: "open_complaints" },
   ] },
   { label: "Payroll", items: [
     { to: "/payroll", label: "Payroll", icon: Wallet, area: "payroll" },
@@ -53,6 +55,8 @@ const EMPLOYEE_NAV: NavGroup[] = [
     { to: "/tasks", label: "Tasks", icon: ListTodo, badge: "my_open_tasks" },
     { to: "/leaves", label: "Leaves", icon: CalendarDays },
     { to: "/announcements", label: "Announcements", icon: Megaphone, badge: "unread_announcements" },
+    { to: "/projects", label: "Project documents", icon: FolderKanban },
+    { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
     { to: "/team", label: "Team tree", icon: Network },
   ] },
   { label: "Me", items: MY_WORKSPACE },
@@ -89,6 +93,7 @@ export const QUICK_ACTIONS: { to: string; label: string; icon: LucideIcon; area?
   { to: "/letters/joining/new", label: "Create joining letter", icon: FileSignature, area: "documents" },
   { to: "/letters/relieving/new", label: "Create relieving letter", icon: DoorOpen, area: "documents" },
   { to: "/mous/new", label: "Create MOU", icon: Handshake, area: "documents" },
+  { to: "/projects?new=1", label: "Share a project document", icon: FolderKanban, area: "projects" },
   { to: "/followups?new=1", label: "Add client follow-up", icon: PhoneCall, area: "followups" },
   { to: "/finance/invoices/new", label: "Create invoice", icon: ReceiptText, area: "finance" },
   { to: "/finance/income?new=1", label: "Record income", icon: TrendingUp, area: "finance" },
