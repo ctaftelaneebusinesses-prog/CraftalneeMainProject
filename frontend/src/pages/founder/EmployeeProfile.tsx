@@ -15,6 +15,7 @@ import { PriorityBadge, TaskStatusBadge } from "@/pages/Tasks";
 import { Avatar, Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageSkeleton, StatusBadge, Toggle } from "@/components/ui/core";
 import { FileDrop, Modal, useConfirm } from "@/components/ui/overlay";
 import { DocRow } from "@/components/DocRow";
+import { DeleteDocButton } from "@/components/DeleteDocButton";
 import { AddReportsModal, useRemoveReport } from "@/components/ReportsModals";
 import { TaskDetailDrawer } from "@/components/TaskDetailDrawer";
 
@@ -162,17 +163,17 @@ export default function EmployeeProfile() {
               <DocGroup title="Offer letter" icon={<Send />} action={<Button size="sm" icon={<Plus />} to={`/letters/offer/new?employee=${e.id}`}>Create</Button>}
                 empty="No offer letter yet.">
                 {e.offer_letters.map((l, i) => <DocRow key={l.id} index={i} kind="offer" title={l.number} sub={`Issued ${fmtDate(l.letter_date)}`} url={l.file_url}
-                  badge={l.archived && <Badge>Archived</Badge>} extra={<Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/offer/${l.id}`} title="Edit & regenerate" />} />)}
+                  badge={l.archived && <Badge>Archived</Badge>} extra={<><Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/offer/${l.id}`} title="Edit & regenerate" /><DeleteDocButton kind="offer" id={l.id} number={l.number} label="offer letter" /></>} />)}
               </DocGroup>
               <DocGroup title="Joining letter" icon={<BriefcaseBusiness />} action={<Button size="sm" icon={<Plus />} to={`/letters/joining/new?employee=${e.id}`}>Create</Button>}
                 empty="No joining letter yet.">
                 {e.joining_letters.map((l, i) => <DocRow key={l.id} index={i} kind="joining" title={l.number} sub={`Issued ${fmtDate(l.letter_date)}`} url={l.file_url}
-                  badge={l.archived && <Badge>Archived</Badge>} extra={<Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/joining/${l.id}`} title="Edit & regenerate" />} />)}
+                  badge={l.archived && <Badge>Archived</Badge>} extra={<><Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/joining/${l.id}`} title="Edit & regenerate" /><DeleteDocButton kind="joining" id={l.id} number={l.number} label="joining letter" /></>} />)}
               </DocGroup>
               <DocGroup title="Relieving letter" icon={<DoorOpen />} action={<Button size="sm" icon={<Plus />} to={`/letters/relieving/new?employee=${e.id}`}>Create</Button>}
                 empty="Issued when the employee leaves.">
                 {(e.relieving_letters ?? []).map((l, i) => <DocRow key={l.id} index={i} kind="relieving" title={l.number} sub={`Last working day ${fmtDate(l.last_working_day)}`} url={l.file_url}
-                  badge={l.archived && <Badge>Archived</Badge>} extra={<Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/relieving/${l.id}`} title="Edit & regenerate" />} />)}
+                  badge={l.archived && <Badge>Archived</Badge>} extra={<><Button size="sm" variant="ghost" iconOnly icon={<Pencil />} to={`/letters/relieving/${l.id}`} title="Edit & regenerate" /><DeleteDocButton kind="relieving" id={l.id} number={l.number} label="relieving letter" /></>} />)}
               </DocGroup>
               <DocGroup title="Payslips" icon={<Receipt />} action={<Button size="sm" variant="ghost" to="/payroll">Payroll →</Button>} empty="Payslips appear here once payroll is finalised.">
                 {e.payslips.map((p, i) => <DocRow key={p.id} index={i} kind="payslip" title={monthLabel(p.month)} sub={<>{p.number} · Net <span className="tnum">{inr(p.net)}</span></>} url={p.file_url} />)}

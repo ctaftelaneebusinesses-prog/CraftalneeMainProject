@@ -14,7 +14,7 @@ type Feed = { due: Lead[]; later_today: Lead[] };
 const SEEN_KEY = "craftlanee.reminders.seen";      // popped up already
 const VIEWED_KEY = "craftlanee.reminders.viewed";  // looked at in the bell → no longer counted on the badge
 const POPUP_WINDOW = 12 * 3600_000;  // don't pop up reminders older than this (the bell still lists them)
-
+200
 function loadSeen(key = SEEN_KEY): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); }
 }
