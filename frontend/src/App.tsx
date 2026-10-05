@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { can, useSession } from "@/lib/session";
 import type { Area } from "@/lib/types";
@@ -8,39 +8,52 @@ import { Splash } from "@/components/Splash";
 import Login from "@/pages/auth/Login";
 import Setup from "@/pages/auth/Setup";
 
-const Dashboard = lazy(() => import("@/pages/founder/Dashboard"));
-const Employees = lazy(() => import("@/pages/founder/Employees"));
-const EmployeeForm = lazy(() => import("@/pages/founder/EmployeeForm"));
-const EmployeeProfile = lazy(() => import("@/pages/founder/EmployeeProfile"));
-const Letters = lazy(() => import("@/pages/founder/Letters"));
-const LetterEditor = lazy(() => import("@/pages/founder/LetterEditor"));
-const Mous = lazy(() => import("@/pages/founder/Mous"));
-const MouEditor = lazy(() => import("@/pages/founder/MouEditor"));
-const MouView = lazy(() => import("@/pages/founder/MouView"));
-const Payroll = lazy(() => import("@/pages/founder/Payroll"));
-const PayrollMonth = lazy(() => import("@/pages/founder/PayrollMonth"));
-const Payslips = lazy(() => import("@/pages/founder/Payslips"));
-const Documents = lazy(() => import("@/pages/founder/Documents"));
-const Finance = lazy(() => import("@/pages/founder/Finance"));
-const IncomePage = lazy(() => import("@/pages/founder/Income"));
-const ExpensesPage = lazy(() => import("@/pages/founder/Expenses"));
-const Invoices = lazy(() => import("@/pages/founder/Invoices"));
-const InvoiceEditor = lazy(() => import("@/pages/founder/InvoiceEditor"));
-const InvoiceView = lazy(() => import("@/pages/founder/InvoiceView"));
-const Followups = lazy(() => import("@/pages/founder/Followups"));
-const Settings = lazy(() => import("@/pages/founder/Settings"));
-const AuditLog = lazy(() => import("@/pages/founder/AuditLog"));
-const Account = lazy(() => import("@/pages/Account"));
-const Leaves = lazy(() => import("@/pages/Leaves"));
-const Tasks = lazy(() => import("@/pages/Tasks"));
-const TeamTree = lazy(() => import("@/pages/TeamTree"));
-const Announcements = lazy(() => import("@/pages/Announcements"));
-const Projects = lazy(() => import("@/pages/Projects"));
-const Complaints = lazy(() => import("@/pages/Complaints"));
-const PortalHome = lazy(() => import("@/pages/portal/Home"));
-const PortalProfile = lazy(() => import("@/pages/portal/Profile"));
-const PortalDocuments = lazy(() => import("@/pages/portal/Documents"));
-const PortalPayslips = lazy(() => import("@/pages/portal/Payslips"));
+// Every page is code-split; once signed in, all of them are fetched in the background so switching pages
+// (or going back) never waits on a download.
+const loaders: (() => Promise<unknown>)[] = [];
+function page<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  loaders.push(load);
+  return lazy(load);
+}
+function preloadPages() {
+  const run = () => loaders.forEach((load) => { load().catch(() => {}); });
+  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 3000 });
+  else setTimeout(run, 1500);
+}
+
+const Dashboard = page(() => import("@/pages/founder/Dashboard"));
+const Employees = page(() => import("@/pages/founder/Employees"));
+const EmployeeForm = page(() => import("@/pages/founder/EmployeeForm"));
+const EmployeeProfile = page(() => import("@/pages/founder/EmployeeProfile"));
+const Letters = page(() => import("@/pages/founder/Letters"));
+const LetterEditor = page(() => import("@/pages/founder/LetterEditor"));
+const Mous = page(() => import("@/pages/founder/Mous"));
+const MouEditor = page(() => import("@/pages/founder/MouEditor"));
+const MouView = page(() => import("@/pages/founder/MouView"));
+const Payroll = page(() => import("@/pages/founder/Payroll"));
+const PayrollMonth = page(() => import("@/pages/founder/PayrollMonth"));
+const Payslips = page(() => import("@/pages/founder/Payslips"));
+const Documents = page(() => import("@/pages/founder/Documents"));
+const Finance = page(() => import("@/pages/founder/Finance"));
+const IncomePage = page(() => import("@/pages/founder/Income"));
+const ExpensesPage = page(() => import("@/pages/founder/Expenses"));
+const Invoices = page(() => import("@/pages/founder/Invoices"));
+const InvoiceEditor = page(() => import("@/pages/founder/InvoiceEditor"));
+const InvoiceView = page(() => import("@/pages/founder/InvoiceView"));
+const Followups = page(() => import("@/pages/founder/Followups"));
+const Settings = page(() => import("@/pages/founder/Settings"));
+const AuditLog = page(() => import("@/pages/founder/AuditLog"));
+const Account = page(() => import("@/pages/Account"));
+const Leaves = page(() => import("@/pages/Leaves"));
+const Tasks = page(() => import("@/pages/Tasks"));
+const TeamTree = page(() => import("@/pages/TeamTree"));
+const Announcements = page(() => import("@/pages/Announcements"));
+const Projects = page(() => import("@/pages/Projects"));
+const Complaints = page(() => import("@/pages/Complaints"));
+const PortalHome = page(() => import("@/pages/portal/Home"));
+const PortalProfile = page(() => import("@/pages/portal/Profile"));
+const PortalDocuments = page(() => import("@/pages/portal/Documents"));
+const PortalPayslips = page(() => import("@/pages/portal/Payslips"));
 
 
 /** "founder" = admin console (founder or founder-granted admin), optionally one granted `area`;
@@ -62,6 +75,7 @@ function Home() {
 
 export default function App() {
   const { session, user, loading } = useSession();
+  useEffect(() => { if (user) preloadPages(); }, [user]);
   if (loading || !session) return <Splash />;
   if (session.setup_required) return <Routes><Route path="*" element={<Setup />} /></Routes>;
 

@@ -180,13 +180,13 @@ export function AppShell() {
         </header>
 
         <main className="mx-auto w-full max-w-[1320px] px-4 sm:px-8 pt-8 pb-20">
-          <AnimatePresence mode="wait">
-            <motion.div key={location.pathname}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-              <Suspense fallback={<PageSkeleton />}><Outlet /></Suspense>
-            </motion.div>
-          </AnimatePresence>
+          {/* Enter-only fade. No exit animation: AnimatePresence mode="wait" around <Outlet> could get stuck
+              on back/quick navigation and leave the page blank until a refresh. */}
+          <motion.div key={location.pathname}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
+            <Suspense fallback={<PageSkeleton />}><Outlet /></Suspense>
+          </motion.div>
         </main>
       </div>
 
