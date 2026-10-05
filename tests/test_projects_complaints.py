@@ -80,44 +80,61 @@ class ProjectsComplaintsTest(unittest.TestCase):
         self.assertNotIn("Design specs", titles(self.ivy))
 
     def test_complaints(self):
-        named = self.ok(self.ivy.post("/api/complaints", {"subject": "Laptop is slow", "category": "Facilities & equipment",
-                                                          "message": "It takes 10 minutes to build."}), 201)["complaint"]
-        anon = self.ok(self.ian.post("/api/complaints", {"subject": "Too much overtime", "message": "Every day till 10pm.",
-                                                         "anonymous": True}), 201)["complaint"]
-        private = self.ok(self.ian.post("/api/complaints", {"subject": "About my PM", "message": "…",
-                                                            "founder_only": True}), 201)["complaint"]
+        ivy_id, ian_id, pm_id = (self.people[e]["id"] for e in ("ivy@c.in", "ian@c.in", "pm@c.in"))
+        self.ok(self.f.put(f"/api/org/{ian_id}", {"manager_id": ivy_id}))  # Ian reports to Ivy
+
+        # who each person can send to: people above them in the tree + whoever has the complaints area
+        opts = lambda c: [p["id"] for p in self.ok(c.get("/api/complaints"))["recipients"]]  # noqa: E731
+        self.assertEqual(opts(self.ian), [ivy_id, pm_id])
+        self.assertEqual(opts(self.ivy), [pm_id])
+
+        to_pm = self.ok(self.ivy.post("/api/complaints", {"subject": "Laptop is slow", "category": "Facilities & equipment",
+                                                          "message": "It takes 10 minutes to build.", "recipient_id": pm_id}), 201)["complaint"]
+        hidden = self.ok(self.ian.post("/api/complaints", {"subject": "Too much overtime", "message": "Every day till 10pm.",
+                                                           "anonymous": True, "recipient_id": ivy_id}), 201)["complaint"]
+        founder_only = self.ok(self.ian.post("/api/complaints", {"subject": "About my lead", "message": "…"}), 201)["complaint"]
+        self.assertEqual(self.ian.post("/api/complaints", {"subject": "x", "message": "y", "recipient_id": ian_id}).status_code, 400)
         self.assertEqual(self.ivy.post("/api/complaints", {"subject": "", "message": "x"}).status_code, 400)
         self.assertEqual(self.f.post("/api/complaints", {"subject": "a", "message": "b"}).status_code, 403)  # no employee record
 
-        # each person sees only their own; interns can't see everyone's
-        ivy = self.ok(self.ivy.get("/api/complaints"))
-        self.assertEqual(([c["subject"] for c in ivy["mine"]], ivy["all"], ivy["can_review"]), (["Laptop is slow"], [], False))
-        self.assertEqual(len(self.ok(self.ian.get("/api/complaints"))["mine"]), 2)
+        # each recipient sees only what was sent to them; a hidden name stays hidden from them
+        received = lambda c: {x["id"]: x for x in self.ok(c.get("/api/complaints"))["all"]}  # noqa: E731
+        self.assertEqual(set(received(self.pm)), {to_pm["id"]})
+        self.assertEqual(received(self.pm)[to_pm["id"]]["raised_by"]["full_name"], "Ivy Intern")
+        ivy_inbox = received(self.ivy)
+        self.assertEqual(set(ivy_inbox), {hidden["id"]})
+        self.assertIsNone(ivy_inbox[hidden["id"]]["raised_by"])
+        self.assertTrue(self.ok(self.ivy.get("/api/complaints"))["can_review"])
+        self.assertFalse(self.ok(self.ian.get("/api/complaints"))["can_review"])
 
-        # the PM sees all except founder-only; anonymous hides the name
-        pm = self.ok(self.pm.get("/api/complaints"))
-        by_id = {c["id"]: c for c in pm["all"]}
-        self.assertEqual(set(by_id), {named["id"], anon["id"]})
-        self.assertEqual(by_id[named["id"]]["raised_by"]["full_name"], "Ivy Intern")
-        self.assertIsNone(by_id[anon["id"]]["raised_by"])
-        self.assertEqual(pm["open"], 2)
-        self.assertEqual(self.pm.put(f"/api/complaints/{private['id']}", {"status": "resolved"}).status_code, 404)
-        # the founder sees everything, still without the anonymous name
-        f = {c["id"]: c for c in self.ok(self.f.get("/api/complaints"))["all"]}
-        self.assertEqual(len(f), 3)
-        self.assertIsNone(f[anon["id"]]["raised_by"])
+        # the founder sees every complaint, chosen or not, with every name
+        f = received(self.f)
+        self.assertEqual(set(f), {to_pm["id"], hidden["id"], founder_only["id"]})
+        self.assertEqual(f[hidden["id"]]["raised_by"]["full_name"], "Ian Intern")
+        self.assertIsNone(f[founder_only["id"]]["sent_to"])
         self.assertEqual(self.ok(self.f.get("/api/nav-counts"))["open_complaints"], 3)
+        self.assertEqual(self.ok(self.ivy.get("/api/nav-counts"))["open_complaints"], 1)
 
-        # reply + resolve; the person who raised it sees the reply
-        self.ok(self.pm.put(f"/api/complaints/{named['id']}", {"response": "New laptop ordered.", "status": "resolved"}))
-        mine = self.ok(self.ivy.get("/api/complaints"))["mine"][0]
-        self.assertEqual((mine["status"], mine["response"], mine["responded_by"]), ("resolved", "New laptop ordered.", "Pam PM"))
-        self.assertEqual(self.ivy.put(f"/api/complaints/{named['id']}", {"status": "open"}).status_code, 403)
-        self.assertEqual(self.ok(self.pm.get("/api/nav-counts"))["open_complaints"], 1)
+        # the sender sees their own, with who it went to
+        mine = {x["id"]: x for x in self.ok(self.ian.get("/api/complaints"))["mine"]}
+        self.assertEqual(mine[hidden["id"]]["sent_to"]["full_name"], "Ivy Intern")
 
-        # nothing in the audit log names the anonymous person
+        # only the recipient (or a founder) replies; the sender sees the reply
+        self.assertEqual(self.pm.put(f"/api/complaints/{hidden['id']}", {"status": "resolved"}).status_code, 404)
+        self.ok(self.pm.put(f"/api/complaints/{to_pm['id']}", {"response": "New laptop ordered.", "status": "resolved"}))
+        reply = self.ok(self.ivy.get("/api/complaints"))["mine"][0]
+        self.assertEqual((reply["status"], reply["response"], reply["responded_by"]), ("resolved", "New laptop ordered.", "Pam PM"))
+        self.assertEqual(self.ivy.put(f"/api/complaints/{to_pm['id']}", {"status": "open"}).status_code, 404)
+
+        # only founders delete
+        self.assertEqual(self.pm.delete(f"/api/complaints/{to_pm['id']}").status_code, 403)
+        self.ok(self.f.delete(f"/api/complaints/{to_pm['id']}"))
+        self.assertNotIn(to_pm["id"], received(self.f))
+        self.assertEqual(self.ok(self.ivy.get("/api/complaints"))["mine"], [])
+
+        # the audit log doesn't record who raised a hidden-name complaint
         log = self.ok(self.f.get("/api/audit"))["entries"]
-        self.assertFalse(any(anon["code"] in (e["details"] or "") for e in log))
+        self.assertFalse(any(hidden["code"] in (e["details"] or "") and e["action"] == "raised a complaint" for e in log))
 
 
 if __name__ == "__main__":

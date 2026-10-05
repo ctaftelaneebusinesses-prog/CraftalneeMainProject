@@ -457,8 +457,10 @@ export interface ProjectDoc {
 // Complaints box (craftlanee/api/complaints.py)
 export type ComplaintStatus = "open" | "in_review" | "resolved";
 export interface Complaint {
-  id: number; code: string; subject: string; category: string; message: string; anonymous: boolean; founder_only: boolean;
+  id: number; code: string; subject: string; category: string; message: string;
+  anonymous: boolean;   // name hidden from the person it was sent to
+  sent_to: { id: number; full_name: string } | null;   // null = the founder
   status: ComplaintStatus; response: string | null; responded_by: string | null; responded_at: string | null;
   resolved_at: string | null; created_at: string; updated_at: string; mine: boolean;
-  raised_by: EmployeeBrief | null;   // null when anonymous (except to the person who raised it)
+  raised_by: EmployeeBrief | null;   // null when the name is hidden from the viewer
 }

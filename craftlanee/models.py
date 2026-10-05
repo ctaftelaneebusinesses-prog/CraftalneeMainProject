@@ -55,7 +55,7 @@ PERMISSIONS = {
     "team": ("Team & tasks", "Rearrange the team tree, assign tasks to anyone and see every task"),
     "announcements": ("Announcements", "Post announcements with links and photos to everyone or chosen people"),
     "projects": ("Project documents", "Upload project documents and share them with everyone or with chosen people"),
-    "complaints": ("Complaints", "Read complaints raised by the team, reply to them and mark them resolved"),
+    "complaints": ("Complaints", "Can be chosen to receive complaints from anyone on the team, and reply to and resolve them"),
     "followups": ("Client follow-ups", "Clients and leads, their status, next follow-up dates and call / meeting notes"),
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
@@ -799,14 +799,17 @@ class Complaint(TimestampMixin, db.Model):
     category = db.Column(db.String(40), default="Other", nullable=False)
     message = db.Column(db.Text, nullable=False)
     anonymous = db.Column(db.Boolean, default=False, nullable=False)     # name hidden from whoever reads it
-    founder_only = db.Column(db.Boolean, default=False, nullable=False)  # e.g. about the project manager
+    founder_only = db.Column(db.Boolean, default=False, nullable=False)  # no recipient chosen: founder only
+    # Who it was sent to (someone above them in the team tree or with the complaints area); founders see all.
+    recipient_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="SET NULL"), index=True)
     status = db.Column(db.String(20), default="open", nullable=False, index=True)
     response = db.Column(db.Text)
     responded_by = db.Column(db.String(120))
     responded_at = db.Column(db.DateTime)
     resolved_at = db.Column(db.DateTime)
 
-    employee = db.relationship("Employee", lazy="selectin")
+    employee = db.relationship("Employee", foreign_keys=[employee_id], lazy="selectin")
+    recipient = db.relationship("Employee", foreign_keys=[recipient_id], lazy="selectin")
 
     @property
     def code(self):

@@ -1,67 +1,76 @@
-"""Complaints box: anyone on the team (interns included) raises a complaint; the founder and admins with the
-"complaints" area (e.g. the project manager) read it, reply and resolve it.
+"""Complaints box: anyone on the team (interns included) raises a complaint and chooses who receives it —
+someone above them in the team tree, or an admin given the "complaints" area (e.g. the project manager).
+Leaving the choice empty sends it to the founder only.
 
-A complaint can be anonymous (the name is hidden from whoever reads it) and/or founder-only (hidden from
-everyone but the founder, e.g. when it is about the project manager). The person who raised it always sees
-their own complaints and the replies.
+Founder logins see every complaint, with the name of whoever raised it, and can delete complaints.
+The chosen person sees only the complaints sent to them; if the sender hid their name, they don't see it.
+The person who raised a complaint always sees it, its status and the reply.
 """
 from flask import request
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, Complaint, now
-from ..security import employee_required, permission_required
+from ..models import COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, Complaint, Employee, User, now
+from ..security import employee_required
 from ..utils import audit, clean
 from . import common as S
 from .common import bp, body, fail, get_or_404, ok
 
 
-def _reviewer_query():
-    """Complaints the current admin may read (founder-only ones are for founder logins)."""
-    q = Complaint.query
-    if not current_user.is_founder:
-        q = q.filter(Complaint.founder_only.is_(False))
-    return q
+def _received_query(user):
+    """Complaints this user reads: all of them for a founder, otherwise the ones sent to them."""
+    if user.is_founder:
+        return Complaint.query
+    if not user.employee_id:
+        return Complaint.query.filter(db.false())
+    return Complaint.query.filter(Complaint.recipient_id == user.employee_id)
 
 
 def open_count(user):
     """Unresolved complaints waiting for this user (the nav badge)."""
-    if not user.can("complaints"):
-        return 0
-    q = Complaint.query.filter(Complaint.status != "resolved")
-    if not user.is_founder:
-        q = q.filter(Complaint.founder_only.is_(False))
-    return q.count()
+    return _received_query(user).filter(Complaint.status != "resolved").count()
 
 
-def _ser(c, reviewer=False):
+def recipients_for(emp):
+    """Who `emp` may send a complaint to: people above them in the team tree, plus anyone given the
+    complaints area. Only people with an active login (so they can read it), never themselves."""
+    chain, seen, boss = [], {emp.id}, emp.manager
+    while boss is not None and boss.id not in seen:
+        seen.add(boss.id)
+        chain.append(boss)
+        boss = boss.manager
+    area = [u.employee for u in User.query.filter(User.employee_id.isnot(None), User.active.is_(True)).all()
+            if u.is_active and u.can("complaints") and u.employee_id not in seen]
+    people = chain + sorted(area, key=lambda e: e.full_name.lower())
+    return [e for e in people if e.status == "active" and e.user and e.user.is_active]
+
+
+def _ser(c):
     mine = c.employee_id == current_user.employee_id
-    show_name = mine or not c.anonymous
+    founder = current_user.is_founder
+    show_name = mine or founder or not c.anonymous
     return {"id": c.id, "code": c.code, "subject": c.subject, "category": c.category, "message": c.message,
-            "anonymous": c.anonymous, "founder_only": c.founder_only, "status": c.status,
+            "anonymous": c.anonymous, "status": c.status,
+            "sent_to": {"id": c.recipient.id, "full_name": c.recipient.full_name} if c.recipient else None,
             "response": c.response, "responded_by": c.responded_by, "responded_at": S.iso(c.responded_at),
             "resolved_at": S.iso(c.resolved_at), "created_at": S.iso(c.created_at), "updated_at": S.iso(c.updated_at),
-            "mine": mine,
-            "raised_by": (S.employee_brief(c.employee) if show_name and c.employee else None) if reviewer or mine else None}
+            "mine": mine, "raised_by": S.employee_brief(c.employee) if show_name and c.employee else None}
 
 
 @bp.get("/complaints")
 @login_required
 def complaints_list():
-    mine = []
-    if current_user.employee_id:
-        mine = (Complaint.query.filter_by(employee_id=current_user.employee_id)
-                .order_by(Complaint.created_at.desc()).all())
-    reviewer = current_user.can("complaints")
-    everyone = []
-    if reviewer:
-        q = _reviewer_query()
-        status = request.args.get("status", "")
-        if status in COMPLAINT_STATUSES:
-            q = q.filter_by(status=status)
-        everyone = q.order_by(Complaint.created_at.desc()).limit(500).all()
-    return ok(mine=[_ser(c) for c in mine], all=[_ser(c, reviewer=True) for c in everyone],
-              can_review=reviewer, can_raise=bool(current_user.employee_id),
+    emp = current_user.employee
+    mine = (Complaint.query.filter_by(employee_id=emp.id).order_by(Complaint.created_at.desc()).all() if emp else [])
+    q = _received_query(current_user)
+    status = request.args.get("status", "")
+    if status in COMPLAINT_STATUSES:
+        q = q.filter_by(status=status)
+    received = q.order_by(Complaint.created_at.desc()).limit(500).all()
+    can_review = current_user.is_founder or current_user.can("complaints") or bool(received)
+    return ok(mine=[_ser(c) for c in mine], all=[_ser(c) for c in received],
+              can_review=can_review, can_delete=current_user.is_founder, can_raise=emp is not None,
+              recipients=[S.employee_brief(e) for e in recipients_for(emp)] if emp else [],
               categories=COMPLAINT_CATEGORIES, open=open_count(current_user))
 
 
@@ -69,28 +78,43 @@ def complaints_list():
 @employee_required
 def complaints_create():
     d = body()
-    c = Complaint(employee_id=current_user.employee_id, subject=clean(d, "subject", 200),
-                  message=clean(d, "message", 10000),
+    emp = current_user.employee
+    recipient = None
+    if d.get("recipient_id") not in (None, "", 0, "0"):
+        try:
+            rid = int(d.get("recipient_id"))
+        except (TypeError, ValueError):
+            fail("Choose who should receive the complaint.")
+        recipient = next((e for e in recipients_for(emp) if e.id == rid), None)
+        if recipient is None:
+            fail("You can't send a complaint to that person.")
+    c = Complaint(employee_id=emp.id, subject=clean(d, "subject", 200), message=clean(d, "message", 10000),
                   category=d.get("category") if d.get("category") in COMPLAINT_CATEGORIES else "Other",
-                  anonymous=bool(d.get("anonymous")), founder_only=bool(d.get("founder_only")))
+                  anonymous=bool(d.get("anonymous")), recipient_id=recipient.id if recipient else None,
+                  founder_only=recipient is None)
     if not c.subject:
         fail("Add a short subject.")
     if not c.message:
         fail("Describe the complaint.")
     db.session.add(c)
     db.session.flush()
-    if not c.anonymous:  # the audit log records who acted, so anonymous complaints aren't logged
+    if not c.anonymous:  # the audit log records who acted
         audit("raised a complaint", "complaint", f"{c.code} · {c.category}")
     db.session.commit()
     return ok(complaint=_ser(c)), 201
 
 
-@bp.put("/complaints/<int:complaint_id>")
-@permission_required("complaints")
-def complaints_update(complaint_id):
+def _reviewable(complaint_id):
     c = get_or_404(Complaint, complaint_id, "Complaint")
-    if c.founder_only and not current_user.is_founder:
+    if not (current_user.is_founder or (current_user.employee_id and c.recipient_id == current_user.employee_id)):
         fail("Complaint not found.", 404)
+    return c
+
+
+@bp.put("/complaints/<int:complaint_id>")
+@login_required
+def complaints_update(complaint_id):
+    c = _reviewable(complaint_id)
     d = body()
     if "response" in d:
         response = clean(d, "response", 10000) or None
@@ -102,4 +126,16 @@ def complaints_update(complaint_id):
         c.resolved_at = now() if status == "resolved" else None
     audit(f"updated complaint {c.code}", "complaint", c.status)
     db.session.commit()
-    return ok(complaint=_ser(c, reviewer=True))
+    return ok(complaint=_ser(c))
+
+
+@bp.delete("/complaints/<int:complaint_id>")
+@login_required
+def complaints_delete(complaint_id):
+    if not current_user.is_founder:
+        fail("You don't have permission to do that.", 403)
+    c = get_or_404(Complaint, complaint_id, "Complaint")
+    audit(f"deleted complaint {c.code}", "complaint", c.subject[:120])
+    db.session.delete(c)
+    db.session.commit()
+    return ok(deleted=True)

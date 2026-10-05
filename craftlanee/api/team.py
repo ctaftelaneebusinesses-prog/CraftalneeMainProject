@@ -106,16 +106,32 @@ def _apply(t, d, full=True):
 @bp.post("/tasks")
 @login_required
 def tasks_create():
+    """Assign a task to one person (assignee_id) or to several at once (assignee_ids): each person gets their
+    own copy, so status, checklist and notes stay separate."""
     d = body()
-    if not d.get("assignee_id"):
+    raw = d.get("assignee_ids")
+    try:
+        ids = list(dict.fromkeys(int(x) for x in raw)) if isinstance(raw, list) else (
+            [int(d["assignee_id"])] if d.get("assignee_id") else [])
+    except (TypeError, ValueError):
         fail("Choose who this task is for.")
-    t = Task(created_by_id=current_user.id, created_by_name=current_user.name, status="todo")
-    _apply(t, d)
-    db.session.add(t)
+    if not ids:
+        fail("Choose who this task is for.")
+    if len(ids) > 200:
+        fail("Assign to at most 200 people at once.")
+    if not set(ids) <= assignable_ids(current_user):
+        fail("You can only assign tasks to people in your reporting line.", 403)
+    tasks = []
+    for aid in ids:
+        t = Task(created_by_id=current_user.id, created_by_name=current_user.name, status="todo")
+        _apply(t, {k: v for k, v in d.items() if k != "assignee_ids"} | {"assignee_id": aid})
+        db.session.add(t)
+        tasks.append(t)
     db.session.flush()
-    audit(f"assigned task “{t.title}” to {t.assignee.full_name}", "task")
+    names = ", ".join(t.assignee.full_name for t in tasks[:5]) + (f" and {len(tasks) - 5} more" if len(tasks) > 5 else "")
+    audit(f"assigned task “{tasks[0].title}” to {names}", "task")
     db.session.commit()
-    return ok(task=S.task(t)), 201
+    return ok(task=S.task(tasks[0]), tasks=[S.task(t) for t in tasks]), 201
 
 
 @bp.put("/tasks/<int:task_id>")

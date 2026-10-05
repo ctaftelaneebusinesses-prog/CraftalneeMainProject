@@ -182,23 +182,53 @@ function TaskDrawer({ task, onClose, onDone }: { task: Task | "new" | null; onCl
   const { data } = useQuery({ queryKey: ["assignable"], queryFn: () => api.get<{ employees: EmployeeBrief[]; priorities: string[] }>("/tasks/assignable"), enabled: !!task });
   const [f, setF] = useState({ title: "", description: "", due_date: "", priority: "Medium" });
   const [assignee, setAssignee] = useState<number | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());   // new task: one copy per person
+  const [q, setQ] = useState("");
+  const isNew = task === "new";
   useEffect(() => {
-    if (task === "new") { setF({ title: "", description: "", due_date: "", priority: "Medium" }); setAssignee(null); }
+    if (task === "new") { setF({ title: "", description: "", due_date: "", priority: "Medium" }); setAssignee(null); setPicked(new Set()); setQ(""); }
     else if (task) { setF({ title: task.title, description: task.description ?? "", due_date: task.due_date ?? "", priority: task.priority }); setAssignee(task.assignee.id); }
   }, [task]);
   const m = useMutation({
-    mutationFn: () => task && task !== "new" ? api.put(`/tasks/${task.id}`, { ...f, assignee_id: assignee }) : api.post("/tasks", { ...f, assignee_id: assignee }),
-    onSuccess: () => { toast.success(task === "new" ? "Task assigned" : "Task updated"); onDone(); },
+    mutationFn: () => task && task !== "new" ? api.put(`/tasks/${task.id}`, { ...f, assignee_id: assignee }) : api.post("/tasks", { ...f, assignee_ids: [...picked] }),
+    onSuccess: () => { toast.success(isNew ? (picked.size > 1 ? `Task assigned to ${picked.size} people` : "Task assigned") : "Task updated"); onDone(); },
   });
   const people = data?.employees ?? [];
+  const shown = people.filter((e) => !q || `${e.full_name} ${e.emp_code} ${e.designation ?? ""} ${e.employment_type ?? ""} ${e.department ?? ""}`.toLowerCase().includes(q.toLowerCase()));
+  const allShown = shown.length > 0 && shown.every((e) => picked.has(e.id));
+  const flip = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const ready = !!f.title.trim() && (isNew ? picked.size > 0 : !!assignee);
   return (
-    <Drawer open={!!task} onClose={onClose} title={task === "new" ? "New task" : "Edit task"} subtitle="The assignee sees it instantly in their Tasks."
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={<Check />} loading={m.isPending} disabled={!f.title.trim() || !assignee} onClick={() => m.mutate()}>{task === "new" ? "Assign task" : "Save"}</Button></>}>
+    <Drawer open={!!task} onClose={onClose} title={task === "new" ? "New task" : "Edit task"} subtitle={isNew ? "Everyone you pick sees it instantly in their Tasks." : "The assignee sees it instantly in their Tasks."}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={<Check />} loading={m.isPending} disabled={!ready} onClick={() => m.mutate()}>{isNew ? (picked.size > 1 ? `Assign to ${picked.size} people` : "Assign task") : "Save"}</Button></>}>
       <div className="space-y-5">
         <Field label="Title"><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Build the login page" autoFocus /></Field>
-        <Field label="Assign to" hint={people.length ? `${people.length} people in your reporting line` : "No one reports to you yet."}>
-          <PersonSelect people={people} value={assignee} onChange={setAssignee} placeholder="Choose a person" />
-        </Field>
+        {isNew ? (
+          <Field label="Assign to" hint={people.length ? "Pick one or more people. Each gets their own copy to track." : "No one reports to you yet."}>
+            <div className="rounded-xl border border-white/[0.08] p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <SearchInput value={q} onChange={setQ} placeholder="Search name, ID, role, type…" className="flex-1" />
+                <Button size="sm" variant="ghost" disabled={!shown.length} onClick={() => setPicked((s) => { const n = new Set(s); shown.forEach((e) => (allShown ? n.delete(e.id) : n.add(e.id))); return n; })}>
+                  {allShown ? "Unselect shown" : "Select shown"}
+                </Button>
+              </div>
+              <div className="max-h-56 overflow-y-auto -mx-1">
+                {shown.map((e) => (
+                  <label key={e.id} className={cn("flex items-center gap-3 rounded-lg px-2 py-1.5 cursor-pointer", picked.has(e.id) ? "bg-brand-500/[0.08]" : "hover:bg-white/[0.04]")}>
+                    <input type="checkbox" className="size-4 accent-[#7c5cff]" checked={picked.has(e.id)} onChange={() => flip(e.id)} />
+                    <Avatar person={e} size={26} />
+                    <span className="flex-1 min-w-0 truncate text-[13.5px]">{e.full_name}<span className="text-fg-4 text-[12px]"> · {e.designation ?? e.emp_code}</span></span>
+                    <span className="text-[11.5px] text-fg-4">{e.employment_type}</span>
+                  </label>
+                ))}
+                {!shown.length && <p className="px-2 py-3 text-[13px] text-fg-4">{people.length ? "No one found." : "No one to assign to."}</p>}
+              </div>
+              <div className="mt-2 text-[12px] text-fg-4">{picked.size} selected</div>
+            </div>
+          </Field>
+        ) : (
+          <Field label="Assign to"><PersonSelect people={people} value={assignee} onChange={setAssignee} placeholder="Choose a person" /></Field>
+        )}
         <Field label="Priority">
           <div className="flex flex-wrap gap-2">
             {(data?.priorities ?? ["Low", "Medium", "High", "Urgent"]).map((p) => (
