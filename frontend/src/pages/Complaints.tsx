@@ -11,7 +11,7 @@ import { Drawer, useConfirm } from "@/components/ui/overlay";
 import { PersonSelect } from "@/components/PersonSelect";
 
 type Data = { mine: Complaint[]; all: Complaint[]; can_review: boolean; can_delete: boolean; can_raise: boolean;
-  recipients: EmployeeBrief[]; categories: string[]; open: number };
+  recipients: EmployeeBrief[]; categories: string[]; open: number; manager_id: number | null };
 
 const STATUS: Record<ComplaintStatus, { label: string; tone: Tone }> = {
   open: { label: "Open", tone: "warn" }, in_review: { label: "In review", tone: "info" }, resolved: { label: "Resolved", tone: "good" },
@@ -116,26 +116,25 @@ function RaiseDrawer({ open, categories, recipients, onClose }: { open: boolean;
   const [to, setTo] = useState<number | null>(null);
   useEffect(() => { if (open) { setF({ subject: "", category: categories[0] ?? "Other", message: "", anonymous: false }); setTo(null); } }, [open, categories]);
   const recipient = recipients.find((r) => r.id === to) ?? null;
+  const toName = recipient?.full_name ?? "Founder";
   const save = useMutation({
-    mutationFn: () => api.post("/complaints", { ...f, anonymous: recipient ? f.anonymous : false, recipient_id: to }),
+    mutationFn: () => api.post("/complaints", { ...f, recipient_id: to }),
     onSuccess: () => { ["complaints", "nav-counts"].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); toast.success("Complaint sent. You'll see the reply here."); onClose(); },
   });
   return (
     <Drawer open={open} onClose={onClose} title="Raise a complaint" subtitle="Choose who should receive it."
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={<Send />} loading={save.isPending} disabled={!f.subject.trim() || !f.message.trim()} onClick={() => save.mutate()}>Send complaint</Button></>}>
       <div className="space-y-5">
-        <Field label="Send to" hint="Someone above you in the team, or a person who handles complaints.">
+        <Field label="Send to" hint="The founder, the person who handles complaints, or someone above you in the team.">
           <PersonSelect people={recipients} value={to} onChange={setTo} noneLabel="Founder" />
         </Field>
         <Field label="Subject"><Input value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} maxLength={200} placeholder="In a few words, what's it about?" autoFocus /></Field>
         <Field label="Category"><Select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} options={categories} /></Field>
         <Field label="Details"><Textarea value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} className="min-h-[160px]" maxLength={10000} placeholder="What happened, when, and who was involved? What would you like to happen?" /></Field>
-        {recipient && (
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-            <Toggle checked={f.anonymous} onChange={(v) => setF({ ...f, anonymous: v })}
-              label={<span><b className="text-fg">Hide my name from {recipient.full_name}</b><span className="block text-[12px] text-fg-3">{recipient.full_name} will read the complaint without seeing who raised it.</span></span>} />
-          </div>
-        )}
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <Toggle checked={f.anonymous} onChange={(v) => setF({ ...f, anonymous: v })}
+            label={<span><b className="text-fg">Hide my name from {toName}</b><span className="block text-[12px] text-fg-3">{toName} will read it without seeing who raised it.</span></span>} />
+        </div>
       </div>
     </Drawer>
   );

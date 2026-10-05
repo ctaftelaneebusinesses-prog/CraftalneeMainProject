@@ -542,6 +542,8 @@ class CompanySettings(TimestampMixin, db.Model):
     work_days = db.Column(db.String(80))
     probation_period = db.Column(db.String(40))
     notice_period = db.Column(db.String(40))
+    # The one person (besides founder logins) who sees every complaint, with names. Set by the main founder.
+    complaints_manager_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="SET NULL"))
 
 
 class AuditLog(db.Model):

@@ -47,6 +47,45 @@ class ProjectsComplaintsTest(unittest.TestCase):
         self.assertEqual(r.status_code, code, r.data[:400].decode("utf-8", "replace"))
         return r.get_json()
 
+    def test_complaints_manager(self):
+        f = self.f
+        sai = self.ok(f.post("/api/employees", form={"full_name": "P.Sai Greeshmitha", "roles": '["Project Manager"]',
+                                                     "monthly_salary": "1000"}), 201)["employee"]
+        f.post(f"/api/employees/{sai['id']}/login", {"email": "sai@c.in", "password": "password123"})
+        sai_c = self.login("sai@c.in")
+        ivy_id, pm_id = self.people["ivy@c.in"]["id"], self.people["pm@c.in"]["id"]
+
+        # only the main founder sets the complaints manager
+        self.assertEqual(self.pm.put("/api/settings/complaints-manager", {"employee_id": sai["id"]}).status_code, 403)
+        self.ok(f.put("/api/settings/complaints-manager", {"employee_id": sai["id"]}))
+        self.assertEqual(self.ok(f.get("/api/settings"))["complaints_manager_id"], sai["id"])
+
+        # she is always offered first, before the tree and the complaints area
+        self.assertEqual([p["id"] for p in self.ok(self.ian.get("/api/complaints"))["recipients"]], [sai["id"], ivy_id, pm_id])
+
+        to_pm = self.ok(self.ian.post("/api/complaints", {"subject": "Desk", "message": "Broken chair",
+                                                          "recipient_id": pm_id, "anonymous": True}), 201)["complaint"]
+        to_sai = self.ok(self.ian.post("/api/complaints", {"subject": "Hours", "message": "Too long",
+                                                           "recipient_id": sai["id"], "anonymous": True}), 201)["complaint"]
+        to_founder = self.ok(self.ian.post("/api/complaints", {"subject": "Pay", "message": "Late"}), 201)["complaint"]
+        # "hide my name" is accepted for any recipient; she and the founder still see the name
+        self.assertTrue(to_sai["anonymous"] and to_pm["anonymous"])
+
+        # she sees everything, chosen or not, with names; the other PM still sees only theirs, without the name
+        seen = {c["id"]: c for c in self.ok(sai_c.get("/api/complaints"))["all"]}
+        self.assertTrue({to_pm["id"], to_sai["id"], to_founder["id"]} <= set(seen))
+        self.assertEqual(seen[to_pm["id"]]["raised_by"]["full_name"], "Ian Intern")
+        pm_seen = {c["id"]: c for c in self.ok(self.pm.get("/api/complaints"))["all"]}
+        self.assertNotIn(to_founder["id"], pm_seen)
+        self.assertIsNone(pm_seen[to_pm["id"]]["raised_by"])
+        # she can reply to any complaint, but can't delete
+        self.ok(sai_c.put(f"/api/complaints/{to_founder['id']}", {"response": "Looking into it", "status": "in_review"}))
+        self.assertEqual(sai_c.delete(f"/api/complaints/{to_founder['id']}").status_code, 403)
+
+        # clearing the setting: she keeps only what was sent to her
+        self.ok(f.put("/api/settings/complaints-manager", {"employee_id": None}))
+        self.assertEqual([c["id"] for c in self.ok(sai_c.get("/api/complaints"))["all"]], [to_sai["id"]])
+
     def test_project_documents(self):
         ivy_id = self.people["ivy@c.in"]["id"]
         # validation: need a project, title and a file or link

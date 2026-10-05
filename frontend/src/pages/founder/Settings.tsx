@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Activity, Building2, Check, Clock3, FileText, KeyRound, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
+import { Activity, Building2, Check, Clock3, FileText, KeyRound, MessageSquareWarning, Palette, PartyPopper, PenLine, RotateCcw } from "lucide-react";
 import { api, toForm } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { CompanySettings } from "@/lib/types";
@@ -11,6 +11,8 @@ import { Button, Card, Field, Input, PageHeader, PageSkeleton, Textarea, Toggle 
 import { FileDrop } from "@/components/ui/overlay";
 import { Segmented } from "@/components/ui/core";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { PersonSelect } from "@/components/PersonSelect";
+import { useEmployeeOptions } from "@/lib/hooks";
 
 const TEXT = ["company_name", "tagline", "address", "phone", "email", "website", "gstin", "founder_name", "founder_designation", "hr_name", "hr_designation", "work_hours", "work_days", "probation_period", "notice_period", "offer_terms", "internship_terms", "joining_body", "relieving_body", "mou_terms"] as const;
 type RichKey = "offer_terms" | "internship_terms" | "joining_body" | "relieving_body" | "mou_terms";
@@ -41,7 +43,7 @@ export default function Settings() {
   const { session, setSession, user } = useSession();
   const [params] = useSearchParams();
   const welcome = params.get("welcome");
-  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string>}>("/settings") });
+  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ settings: CompanySettings; defaults: Record<RichKey, string>; complaints_manager_id?: number | null }>("/settings") });
   const [richTab, setRichTab] = useState<RichKey>("offer_terms");
   const [v, setV] = useState<Record<Key, string>>(Object.fromEntries(TEXT.map((k) => [k, ""])) as Record<Key, string>);
   const [files, setFiles] = useState<Record<Img, File | null>>({ logo: null, signature: null, hr_signature: null, letterhead: null });
@@ -115,6 +117,7 @@ export default function Settings() {
           <Field label="Designation"><Input {...bind("hr_designation")} placeholder="Manager" required /></Field>
           {img("hr_signature", "HR signature", "Scan on white or transparent", s.hr_signature_url)}
         </Section>
+        {user?.is_primary && <ComplaintsManager current={data.complaints_manager_id ?? null} />}
         <Section icon={<Clock3 />} title="Work policy" text="Pre-filled into every new offer and joining letter, where each can still be changed.">
           <Field label="Working hours"><Input {...bind("work_hours")} placeholder="9:30 AM to 6:30 PM" /></Field>
           <Field label="Working days"><Input {...bind("work_days")} placeholder="Monday to Friday" /></Field>
@@ -155,5 +158,28 @@ export default function Settings() {
         </div>
       </Card>
     </>
+  );
+}
+
+/** Main founder only: the one person who, like the founder, sees every complaint with names. */
+function ComplaintsManager({ current }: { current: number | null }) {
+  const qc = useQueryClient();
+  const { data } = useEmployeeOptions();
+  const people = (data?.employees ?? []).filter((e) => e.status === "active");
+  const m = useMutation({
+    mutationFn: (id: number | null) => api.put<{ complaints_manager_id: number | null }>("/settings/complaints-manager", { employee_id: id }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      const who = people.find((p) => p.id === r.complaints_manager_id);
+      toast.success(who ? `${who.full_name} now handles complaints` : "Complaints go to the founder only");
+    },
+  });
+  return (
+    <Section icon={<MessageSquareWarning />} title="Complaints manager" text="Sees every complaint, with names, whoever it was sent to. Always offered in the Send to list.">
+      <Field label="Person" className="sm:col-span-2" hint="Only you can change this.">
+        <PersonSelect people={people} value={current} onChange={(id) => m.mutate(id)} noneLabel="No one (founder only)" placeholder="Choose a person" />
+      </Field>
+    </Section>
   );
 }

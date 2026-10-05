@@ -6,7 +6,7 @@ from ..defaults import (DEFAULT_INTERNSHIP_TERMS, DEFAULT_JOINING_BODY, DEFAULT_
                         DEFAULT_OFFER_TERMS, DEFAULT_PROBATION, DEFAULT_RELIEVING_BODY, DEFAULT_WORK_DAYS,
                         DEFAULT_WORK_HOURS, is_default)
 from ..extensions import db
-from ..models import AuditLog, EmployeeDocument, JoiningLetter, OfferLetter, Payslip, RelievingLetter
+from ..models import AuditLog, Employee, EmployeeDocument, JoiningLetter, OfferLetter, Payslip, RelievingLetter
 from ..security import employee_required, permission_required
 from ..richtext import sanitize_html
 from ..utils import IMAGE_EXTS, audit, clean, delete_file, get_settings, parse_date, save_upload
@@ -25,7 +25,8 @@ SIGNATURES = ("signature", "hr_signature")  # only the main founder (User.is_pri
 @bp.get("/settings")
 @permission_required("settings")
 def settings_get():
-    return ok(settings=S.company(get_settings(), full=True), 
+    s = get_settings()
+    return ok(settings=S.company(s, full=True), complaints_manager_id=s.complaints_manager_id, 
               defaults={"offer_terms": DEFAULT_OFFER_TERMS, "internship_terms": DEFAULT_INTERNSHIP_TERMS,
                         "joining_body": DEFAULT_JOINING_BODY, "relieving_body": DEFAULT_RELIEVING_BODY,
                         "mou_terms": DEFAULT_MOU_TERMS, "work_hours": DEFAULT_WORK_HOURS,
@@ -77,6 +78,23 @@ def settings_save():
     for path in old_files:
         delete_file(path)
     return ok(settings=S.company(s, full=True))
+
+
+@bp.put("/settings/complaints-manager")
+@login_required
+def settings_complaints_manager():
+    """The main founder picks the one person who sees every complaint (with names) besides founder logins."""
+    if not current_user.is_primary:
+        abort(403)
+    s = get_settings()
+    raw = (request.get_json(silent=True) or {}).get("employee_id")
+    emp = db.session.get(Employee, int(raw)) if raw not in (None, "", 0, "0") else None
+    if raw not in (None, "", 0, "0") and emp is None:
+        fail("Employee not found.", 404)
+    s.complaints_manager_id = emp.id if emp else None
+    audit("changed the complaints manager", "settings", emp.full_name if emp else "none")
+    db.session.commit()
+    return ok(complaints_manager_id=s.complaints_manager_id)
 
 
 @bp.get("/audit")

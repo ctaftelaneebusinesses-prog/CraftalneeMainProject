@@ -1,10 +1,11 @@
 """Complaints box: anyone on the team (interns included) raises a complaint and chooses who receives it —
-someone above them in the team tree, or an admin given the "complaints" area (e.g. the project manager).
-Leaving the choice empty sends it to the founder only.
+the founder, the complaints manager, someone above them in the team tree, or an admin given the
+"complaints" area.
 
-Founder logins see every complaint, with the name of whoever raised it, and can delete complaints.
-The chosen person sees only the complaints sent to them; if the sender hid their name, they don't see it.
-The person who raised a complaint always sees it, its status and the reply.
+Founder logins and the complaints manager (one person, chosen by the main founder in Settings) see every
+complaint, with the name of whoever raised it. Founders can delete complaints. Anyone else sees only the
+complaints sent to them, without the name if the sender hid it from them. The person who raised a complaint
+always sees it, its status and the reply.
 """
 from flask import request
 from flask_login import current_user, login_required
@@ -12,14 +13,24 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..models import COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, Complaint, Employee, User, now
 from ..security import employee_required
-from ..utils import audit, clean
+from ..utils import audit, clean, get_settings
 from . import common as S
 from .common import bp, body, fail, get_or_404, ok
 
 
+def manager_id():
+    """Employee id of the complaints manager, if one is set."""
+    return get_settings().complaints_manager_id
+
+
+def sees_all(user):
+    """Founder logins and the complaints manager read every complaint, names included."""
+    return user.is_founder or bool(user.employee_id and user.employee_id == manager_id())
+
+
 def _received_query(user):
-    """Complaints this user reads: all of them for a founder, otherwise the ones sent to them."""
-    if user.is_founder:
+    """Complaints this user reads: all of them for a founder / the complaints manager, else the ones sent to them."""
+    if sees_all(user):
         return Complaint.query
     if not user.employee_id:
         return Complaint.query.filter(db.false())
@@ -32,9 +43,10 @@ def open_count(user):
 
 
 def recipients_for(emp):
-    """Who `emp` may send a complaint to: people above them in the team tree, plus anyone given the
-    complaints area. Only people with an active login (so they can read it), never themselves."""
-    chain, seen, boss = [], {emp.id}, emp.manager
+    """Who `emp` may send a complaint to: the complaints manager, people above them in the team tree, and
+    anyone given the complaints area. Only people with an active login (so they can read it), never themselves."""
+    head = db.session.get(Employee, manager_id() or 0)
+    chain, seen, boss = ([head] if head and head.id != emp.id else []), {emp.id} | ({head.id} if head else set()), emp.manager
     while boss is not None and boss.id not in seen:
         seen.add(boss.id)
         chain.append(boss)
@@ -47,8 +59,7 @@ def recipients_for(emp):
 
 def _ser(c):
     mine = c.employee_id == current_user.employee_id
-    founder = current_user.is_founder
-    show_name = mine or founder or not c.anonymous
+    show_name = mine or sees_all(current_user) or not c.anonymous
     return {"id": c.id, "code": c.code, "subject": c.subject, "category": c.category, "message": c.message,
             "anonymous": c.anonymous, "status": c.status,
             "sent_to": {"id": c.recipient.id, "full_name": c.recipient.full_name} if c.recipient else None,
@@ -67,9 +78,10 @@ def complaints_list():
     if status in COMPLAINT_STATUSES:
         q = q.filter_by(status=status)
     received = q.order_by(Complaint.created_at.desc()).limit(500).all()
-    can_review = current_user.is_founder or current_user.can("complaints") or bool(received)
+    can_review = sees_all(current_user) or current_user.can("complaints") or bool(received)
     return ok(mine=[_ser(c) for c in mine], all=[_ser(c) for c in received],
               can_review=can_review, can_delete=current_user.is_founder, can_raise=emp is not None,
+              manager_id=manager_id(),
               recipients=[S.employee_brief(e) for e in recipients_for(emp)] if emp else [],
               categories=COMPLAINT_CATEGORIES, open=open_count(current_user))
 
@@ -88,6 +100,8 @@ def complaints_create():
         recipient = next((e for e in recipients_for(emp) if e.id == rid), None)
         if recipient is None:
             fail("You can't send a complaint to that person.")
+    # Demo behaviour (final-year project): "hide my name" is offered for every recipient, but founder logins and
+    # the complaints manager still see the name (see sees_all); only other recipients have it hidden.
     c = Complaint(employee_id=emp.id, subject=clean(d, "subject", 200), message=clean(d, "message", 10000),
                   category=d.get("category") if d.get("category") in COMPLAINT_CATEGORIES else "Other",
                   anonymous=bool(d.get("anonymous")), recipient_id=recipient.id if recipient else None,
@@ -106,7 +120,7 @@ def complaints_create():
 
 def _reviewable(complaint_id):
     c = get_or_404(Complaint, complaint_id, "Complaint")
-    if not (current_user.is_founder or (current_user.employee_id and c.recipient_id == current_user.employee_id)):
+    if not (sees_all(current_user) or (current_user.employee_id and c.recipient_id == current_user.employee_id)):
         fail("Complaint not found.", 404)
     return c
 
