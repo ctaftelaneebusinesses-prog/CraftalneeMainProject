@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ExternalLink, FileSpreadsheet, Lock, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Check, ExternalLink, Link2, Lock, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDate } from "@/lib/format";
 import { Avatar, Badge, Button, Card, EmptyState, Field, Input, PageHeader, SearchInput, Select, Skeleton, Textarea } from "@/components/ui/core";
@@ -18,9 +18,9 @@ const ACCESS_OPTIONS: { value: Access; label: string }[] = [
 const ACCESS_LABEL: Record<Access, string> = { view: "Can view", edit: "Can edit", full: "Full access" };
 type Data = { sheets: Sheet[]; sees_all: boolean; people: Person[] };
 
-/** Drive links (Excel, Google Sheets, Docs, anything). Anyone adds one and picks who can see it; founders and the
- *  project manager always see every sheet. */
-export default function Sheets() {
+/** Shared links: Drive / OneDrive links to Excel, Docs, Slides, PDFs, folders — anything. Anyone adds one and picks
+ *  who can see it; founders and the project manager always see every link. (Stored as "sheets" in the API.) */
+export default function SharedLinks() {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const [q, setQ] = useState("");
@@ -37,22 +37,22 @@ export default function Sheets() {
     return (data?.sheets ?? []).filter((s) => !needle || `${s.title} ${s.notes ?? ""} ${s.owner_name ?? ""}`.toLowerCase().includes(needle));
   }, [data, q]);
 
-  const add = <Button variant="primary" icon={<Plus />} onClick={() => setEditing("new")}>Add sheet</Button>;
+  const add = <Button variant="primary" icon={<Plus />} onClick={() => setEditing("new")}>Add link</Button>;
   return (
     <>
-      <PageHeader eyebrow="Work" title="Sheets" actions={add}
-        subtitle={data?.sees_all ? "Every Drive link added by the team — Excel, Sheets, Docs and more." : "Add Drive links (Excel, Sheets, Docs…) and choose who can see them. Founders and the project manager always can."} />
+      <PageHeader eyebrow="Work" title="Shared links" actions={add}
+        subtitle={data?.sees_all ? "Every link added by the team — Excel, Docs, Slides, PDFs, folders and more." : "Share links to Excel, Docs, Slides, PDFs, folders — anything — and choose who can see them. Founders and the project manager always can."} />
 
-      {!!data?.sheets.length && <div className="flex justify-end mb-5"><SearchInput value={q} onChange={setQ} placeholder="Search sheets…" className="w-full sm:w-[260px]" /></div>}
+      {!!data?.sheets.length && <div className="flex justify-end mb-5"><SearchInput value={q} onChange={setQ} placeholder="Search links…" className="w-full sm:w-[260px]" /></div>}
 
       {isLoading ? <div className="space-y-3">{[0, 1].map((i) => <Skeleton key={i} className="h-20" />)}</div>
-        : !data?.sheets.length ? <Card><EmptyState icon={<FileSpreadsheet />} title="No sheets yet" text="Paste a Google Drive link and choose who it's shared with." action={add} /></Card>
-        : !rows.length ? <Card><EmptyState icon={<FileSpreadsheet />} title="Nothing matches" text="Try another search." /></Card>
+        : !data?.sheets.length ? <Card><EmptyState icon={<Link2 />} title="No shared links yet" text="Paste a Drive link to a sheet, doc or anything else and choose who it's shared with." action={add} /></Card>
+        : !rows.length ? <Card><EmptyState icon={<Link2 />} title="Nothing matches" text="Try another search." /></Card>
         : (
           <Card className="overflow-hidden"><div className="divide-y divider">
             {rows.map((s) => (
               <div key={s.id} className="group flex items-start gap-4 px-5 py-4">
-                <span className="grid place-items-center size-10 shrink-0 rounded-xl bg-brand-500/15 text-brand-300"><FileSpreadsheet className="size-[18px]" /></span>
+                <span className="grid place-items-center size-10 shrink-0 rounded-xl bg-brand-500/15 text-brand-300"><Link2 className="size-[18px]" /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <a href={s.link} target="_blank" rel="noopener" className="font-medium hover:underline">{s.title}</a>
@@ -71,7 +71,7 @@ export default function Sheets() {
                   <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     <Button size="sm" variant="ghost" iconOnly icon={<Pencil />} title={s.can_manage ? "Edit or change who can see it" : "Edit"} onClick={() => setEditing(s)} />
                     {s.can_manage && <Button size="sm" variant="ghost" iconOnly icon={<Trash2 />} title="Delete" className="hover:text-bad" onClick={async () => {
-                      if (await confirm({ title: `Delete “${s.title}”?`, message: "It disappears for everyone it was shared with. The file in Drive is not touched.", danger: true, confirmText: "Delete" })) del.mutate(s.id);
+                      if (await confirm({ title: `Delete “${s.title}”?`, message: "It disappears for everyone it was shared with. The file itself in Drive is not touched.", danger: true, confirmText: "Delete" })) del.mutate(s.id);
                     }} />}
                   </div>
                 )}
@@ -110,21 +110,21 @@ function SheetDrawer({ editing, people, onClose }: { editing: Sheet | "new" | nu
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sheets"] });
-      toast.success(sheet ? "Sheet updated" : picked.size ? `Shared with ${picked.size} ${picked.size === 1 ? "person" : "people"}` : "Sheet added");
+      toast.success(sheet ? "Link updated" : picked.size ? `Shared with ${picked.size} ${picked.size === 1 ? "person" : "people"}` : "Link added");
       onClose();
     },
   });
 
   return (
-    <Drawer open={!!editing} onClose={onClose} width={560} title={sheet ? "Edit sheet" : "Add a sheet"}
+    <Drawer open={!!editing} onClose={onClose} width={560} title={sheet ? "Edit link" : "Share a link"}
       subtitle={manage ? "Founders and the project manager can always see it. Pick anyone else and what they can do." : "You can change the name, link and notes."}
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="primary" icon={<Check />} loading={save.isPending} disabled={!f.title.trim() || !f.link.trim()} onClick={() => save.mutate()}>
-          {sheet ? "Save changes" : "Add sheet"}
+          {sheet ? "Save changes" : "Add link"}
         </Button></>}>
       <div className="space-y-5">
         <Field label="Name"><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. October leads tracker" autoFocus maxLength={200} /></Field>
-        <Field label="Drive link" hint="Google Sheets, Excel, Docs, a folder — anything"><Input value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="https://drive.google.com/…" /></Field>
+        <Field label="Link" hint="Google Sheets, Excel, Docs, Slides, a PDF, a folder — anything"><Input value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="https://drive.google.com/…" /></Field>
         <Field label="Notes" optional><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} className="min-h-[80px]" placeholder="What's in it…" /></Field>
         {manage && <Field label="Share with" optional hint="Can view: open it · Can edit: also change name, link, notes · Full access: also share and delete">
           <div className="rounded-xl border border-white/[0.08] p-3">

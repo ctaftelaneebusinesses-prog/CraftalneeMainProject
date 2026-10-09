@@ -1,4 +1,4 @@
-"""Sheets: Drive links (Excel, Google Sheets, Docs, anything) that anyone adds and shares with chosen people.
+"""Shared links (stored as "sheets"): Drive links to Excel, Google Sheets, Docs, anything — that anyone adds and shares with chosen people.
 
 Each person a sheet is shared with gets an access level:
   view — open it;  edit — also change its name, link and notes;  full — also change who it's shared with, and delete.
@@ -62,9 +62,9 @@ def _apply_details(s, d):
     s.notes = clean(d, "notes", 10000) or None
     s.link = _link(d.get("link"))
     if not s.title:
-        fail("Give the sheet a name.")
+        fail("Give the link a name.")
     if not s.link:
-        fail("Paste the Drive link.")
+        fail("Paste the link.")
 
 
 def _apply_shares(s, d):
@@ -102,16 +102,16 @@ def sheets_create():
     _apply_shares(s, d)
     db.session.add(s)
     db.session.flush()
-    audit(f"added sheet “{s.title}”", "document", f"shared with {len(s.shares)}")
+    audit(f"shared link “{s.title}”", "document", f"shared with {len(s.shares)}")
     db.session.commit()
     return ok(sheet=_ser(s)), 201
 
 
 def _allowed(sheet_id, *levels):
-    s = get_or_404(Sheet, sheet_id, "Sheet")
+    s = get_or_404(Sheet, sheet_id, "Link")
     access = _access(s)
     if access is None:
-        fail("Sheet not found.", 404)
+        fail("Link not found.", 404)
     if access not in levels:
         fail("You don't have permission to do that.", 403)
     return s, access
@@ -125,7 +125,7 @@ def sheets_update(sheet_id):
     _apply_details(s, d)
     if access == "full" and "shares" in d:  # editors change the content only, not who sees it
         _apply_shares(s, d)
-    audit(f"updated sheet “{s.title}”", "document", f"shared with {len(s.shares)}")
+    audit(f"updated shared link “{s.title}”", "document", f"shared with {len(s.shares)}")
     db.session.commit()
     return ok(sheet=_ser(s))
 
@@ -134,7 +134,7 @@ def sheets_update(sheet_id):
 @login_required
 def sheets_delete(sheet_id):
     s, _ = _allowed(sheet_id, "full")
-    audit(f"deleted sheet “{s.title}”", "document", "")
+    audit(f"deleted shared link “{s.title}”", "document", "")
     db.session.delete(s)
     db.session.commit()
     return ok(deleted=True)
