@@ -1,4 +1,4 @@
-import { Banknote, BriefcaseBusiness, CalendarDays, DoorOpen, FileSignature, FileText, FolderOpen, Handshake, LayoutDashboard,
+import { Banknote, BriefcaseBusiness, FileSpreadsheet, CalendarDays, DoorOpen, FileSignature, FileText, FolderOpen, Handshake, LayoutDashboard,
   FolderKanban, ListTodo, Megaphone, MessageSquareWarning, Network, PhoneCall, Receipt, ReceiptText, Scale, Send, Settings, TrendingDown, TrendingUp, User, UserPlus, Users, Wallet,
   type LucideIcon } from "lucide-react";
 import type { Area, NavCounts, User as SessionUser } from "@/lib/types";
@@ -19,6 +19,7 @@ const ADMIN_NAV: NavGroup[] = [
     { to: "/leaves", label: "Leaves", icon: CalendarDays, badge: "pending_leaves" },
     { to: "/announcements", label: "Announcements", icon: Megaphone, badge: "unread_announcements" },
     { to: "/projects", label: "Project documents", icon: FolderKanban },
+    { to: "/sheets", label: "Sheets", icon: FileSpreadsheet },
     { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, badge: "open_complaints" },
   ] },
   { label: "Payroll", items: [
@@ -56,6 +57,7 @@ const EMPLOYEE_NAV: NavGroup[] = [
     { to: "/leaves", label: "Leaves", icon: CalendarDays },
     { to: "/announcements", label: "Announcements", icon: Megaphone, badge: "unread_announcements" },
     { to: "/projects", label: "Project documents", icon: FolderKanban },
+    { to: "/sheets", label: "Sheets", icon: FileSpreadsheet },
     { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
     { to: "/team", label: "Team tree", icon: Network },
   ] },

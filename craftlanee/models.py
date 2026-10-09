@@ -816,3 +816,24 @@ class Complaint(TimestampMixin, db.Model):
     @property
     def code(self):
         return f"CMP-{self.id:04d}" if self.id else ""
+
+
+sheet_recipients = db.Table(
+    "sheet_recipients",
+    db.Column("sheet_id", db.Integer, db.ForeignKey("sheets.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("employee_id", db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Sheet(TimestampMixin, db.Model):
+    """A Drive link (Excel / Google Sheets / Docs / anything) added by anyone and shared with chosen people.
+    Founders and the project manager (the "projects" area) always see every sheet."""
+    __tablename__ = "sheets"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    link = db.Column(db.String(1000), nullable=False)
+    notes = db.Column(db.Text)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    owner_name = db.Column(db.String(120))
+
+    recipients = db.relationship("Employee", secondary=sheet_recipients, lazy="selectin")
