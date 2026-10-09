@@ -48,7 +48,7 @@ class SheetsTest(unittest.TestCase):
 
     def test_sharing(self):
         r = self.ivy.post("/api/sheets", {"title": "Leads", "link": "drive.google.com/x",
-                                          "recipient_ids": [self.people["ian@c.in"]["id"]]})
+                                          "shares": [{"id": self.people["ian@c.in"]["id"], "access": "view"}]})
         self.assertEqual(r.status_code, 201, r.data[:300])
         sid = r.get_json()["sheet"]["id"]
         self.assertTrue(r.get_json()["sheet"]["link"].startswith("https://"))
@@ -57,7 +57,21 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(self.titles(self.ian), {"Leads"})
         self.assertEqual(self.titles(self.pm), {"Leads", "Private"})
         self.assertEqual(self.titles(self.f), {"Leads", "Private"})
-        self.assertEqual(self.ian.delete(f"/api/sheets/{sid}").status_code, 404)
+        ian_id = self.people["ian@c.in"]["id"]
+        self.assertEqual(self.ian.put(f"/api/sheets/{sid}", {"title": "X", "link": "https://a.b"}).status_code, 403)
+        # editor: may change details but not sharing; can't delete
+        self.assertEqual(self.ivy.put(f"/api/sheets/{sid}", {"title": "Leads", "link": "https://a.b",
+                                                             "shares": [{"id": ian_id, "access": "edit"}]}).status_code, 200)
+        r = self.ian.put(f"/api/sheets/{sid}", {"title": "Leads 2", "link": "https://a.b", "shares": []})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(r.get_json()["sheet"]["recipients"][0]["access"], "edit")
+        self.assertEqual(self.ian.delete(f"/api/sheets/{sid}").status_code, 403)
+        # full access: may reshare and delete, but keeps their own share
+        self.ivy.put(f"/api/sheets/{sid}", {"title": "Leads", "link": "https://a.b", "shares": [{"id": ian_id, "access": "full"}]})
+        pm_id = self.people["pm@c.in"]["id"]
+        r = self.ian.put(f"/api/sheets/{sid}", {"title": "Leads", "link": "https://a.b", "shares": [{"id": pm_id, "access": "view"}]})
+        self.assertEqual({x["id"]: x["access"] for x in r.get_json()["sheet"]["recipients"]}, {ian_id: "full", pm_id: "view"})
+        self.assertEqual(self.ian.delete(f"/api/sheets/{sid}").status_code, 200)
         self.assertEqual(self.ivy.post("/api/sheets", {"title": "Bad", "link": "javascript:alert(1)"}).status_code, 400)
 
 

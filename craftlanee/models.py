@@ -818,11 +818,18 @@ class Complaint(TimestampMixin, db.Model):
         return f"CMP-{self.id:04d}" if self.id else ""
 
 
-sheet_recipients = db.Table(
-    "sheet_recipients",
-    db.Column("sheet_id", db.Integer, db.ForeignKey("sheets.id", ondelete="CASCADE"), primary_key=True),
-    db.Column("employee_id", db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True),
-)
+
+SHEET_ACCESS = ["view", "edit", "full"]   # view · edit name/link/notes · edit + change sharing + delete
+
+
+class SheetShare(db.Model):
+    """One person a sheet is shared with, and what they may do with it."""
+    __tablename__ = "sheet_recipients"
+    sheet_id = db.Column(db.Integer, db.ForeignKey("sheets.id", ondelete="CASCADE"), primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True)
+    access = db.Column(db.String(20), default="view", nullable=False)
+
+    employee = db.relationship("Employee", lazy="selectin")
 
 
 class Sheet(TimestampMixin, db.Model):
@@ -836,4 +843,4 @@ class Sheet(TimestampMixin, db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
     owner_name = db.Column(db.String(120))
 
-    recipients = db.relationship("Employee", secondary=sheet_recipients, lazy="selectin")
+    shares = db.relationship("SheetShare", cascade="all, delete-orphan", lazy="selectin")

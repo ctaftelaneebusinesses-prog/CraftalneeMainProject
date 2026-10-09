@@ -4,12 +4,18 @@ import { toast } from "sonner";
 import { Check, ExternalLink, FileSpreadsheet, Lock, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDate } from "@/lib/format";
-import { Avatar, Badge, Button, Card, EmptyState, Field, Input, PageHeader, SearchInput, Skeleton, Textarea } from "@/components/ui/core";
+import { Avatar, Badge, Button, Card, EmptyState, Field, Input, PageHeader, SearchInput, Select, Skeleton, Textarea } from "@/components/ui/core";
 import { Drawer, useConfirm } from "@/components/ui/overlay";
 
 type Person = { id: number; full_name: string; initials: string; designation: string | null; employment_type: string | null; photo_url: string | null };
-type Sheet = { id: number; title: string; link: string; notes: string | null; owner_name: string | null; mine: boolean; can_edit: boolean;
-  recipients: { id: number; full_name: string }[]; created_at: string; updated_at: string };
+type Access = "view" | "edit" | "full";
+type Sheet = { id: number; title: string; link: string; notes: string | null; owner_name: string | null; mine: boolean;
+  access: Access; can_edit: boolean; can_manage: boolean;
+  recipients: { id: number; full_name: string; access: Access }[]; created_at: string; updated_at: string };
+
+const ACCESS_OPTIONS: { value: Access; label: string }[] = [
+  { value: "view", label: "Can view" }, { value: "edit", label: "Can edit" }, { value: "full", label: "Full access" }];
+const ACCESS_LABEL: Record<Access, string> = { view: "Can view", edit: "Can edit", full: "Full access" };
 type Data = { sheets: Sheet[]; sees_all: boolean; people: Person[] };
 
 /** Drive links (Excel, Google Sheets, Docs, anything). Anyone adds one and picks who can see it; founders and the
@@ -53,6 +59,7 @@ export default function Sheets() {
                     {s.recipients.length
                       ? <Badge tone="brand"><Users className="size-3" /> {s.recipients.length <= 2 ? s.recipients.map((r) => r.full_name).join(", ") : `${s.recipients.length} people`}</Badge>
                       : <Badge><Lock className="size-3" /> Founders & PM only</Badge>}
+                    {!s.mine && !data.sees_all && <Badge tone={s.access === "view" ? "neutral" : "info"}>{ACCESS_LABEL[s.access]}</Badge>}
                   </div>
                   {s.notes && <p className="mt-1 text-[13px] text-fg-2 whitespace-pre-wrap leading-relaxed">{s.notes}</p>}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-4">
@@ -62,10 +69,10 @@ export default function Sheets() {
                 </div>
                 {s.can_edit && (
                   <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                    <Button size="sm" variant="ghost" iconOnly icon={<Pencil />} title="Edit or change who can see it" onClick={() => setEditing(s)} />
-                    <Button size="sm" variant="ghost" iconOnly icon={<Trash2 />} title="Delete" className="hover:text-bad" onClick={async () => {
+                    <Button size="sm" variant="ghost" iconOnly icon={<Pencil />} title={s.can_manage ? "Edit or change who can see it" : "Edit"} onClick={() => setEditing(s)} />
+                    {s.can_manage && <Button size="sm" variant="ghost" iconOnly icon={<Trash2 />} title="Delete" className="hover:text-bad" onClick={async () => {
                       if (await confirm({ title: `Delete “${s.title}”?`, message: "It disappears for everyone it was shared with. The file in Drive is not touched.", danger: true, confirmText: "Delete" })) del.mutate(s.id);
-                    }} />
+                    }} />}
                   </div>
                 )}
               </div>
@@ -82,21 +89,23 @@ function SheetDrawer({ editing, people, onClose }: { editing: Sheet | "new" | nu
   const qc = useQueryClient();
   const sheet = editing && editing !== "new" ? editing : null;
   const [f, setF] = useState({ title: "", link: "", notes: "" });
-  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [picked, setPicked] = useState<Map<number, Access>>(new Map());
+  const manage = !sheet || sheet.can_manage;
   const [q, setQ] = useState("");
 
   useEffect(() => {
     if (!editing) return;
     setF({ title: sheet?.title ?? "", link: sheet?.link ?? "", notes: sheet?.notes ?? "" });
-    setPicked(new Set(sheet?.recipients.map((r) => r.id) ?? [])); setQ("");
+    setPicked(new Map(sheet?.recipients.map((r) => [r.id, r.access]) ?? [])); setQ("");
   }, [editing, sheet]);
 
   const shown = people.filter((e) => !q || `${e.full_name} ${e.designation ?? ""} ${e.employment_type ?? ""}`.toLowerCase().includes(q.toLowerCase()));
-  const flip = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const flip = (id: number) => setPicked((s) => { const n = new Map(s); if (n.has(id)) n.delete(id); else n.set(id, "view"); return n; });
+  const setAccess = (id: number, a: Access) => setPicked((s) => new Map(s).set(id, a));
 
   const save = useMutation({
     mutationFn: () => {
-      const payload = { ...f, recipient_ids: [...picked] };
+      const payload = { ...f, ...(manage && { shares: [...picked].map(([id, access]) => ({ id, access })) }) };
       return sheet ? api.put(`/sheets/${sheet.id}`, payload) : api.post("/sheets", payload);
     },
     onSuccess: () => {
@@ -108,7 +117,7 @@ function SheetDrawer({ editing, people, onClose }: { editing: Sheet | "new" | nu
 
   return (
     <Drawer open={!!editing} onClose={onClose} width={560} title={sheet ? "Edit sheet" : "Add a sheet"}
-      subtitle="Founders and the project manager can always see it. Pick anyone else who should."
+      subtitle={manage ? "Founders and the project manager can always see it. Pick anyone else and what they can do." : "You can change the name, link and notes."}
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="primary" icon={<Check />} loading={save.isPending} disabled={!f.title.trim() || !f.link.trim()} onClick={() => save.mutate()}>
           {sheet ? "Save changes" : "Add sheet"}
@@ -117,23 +126,28 @@ function SheetDrawer({ editing, people, onClose }: { editing: Sheet | "new" | nu
         <Field label="Name"><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. October leads tracker" autoFocus maxLength={200} /></Field>
         <Field label="Drive link" hint="Google Sheets, Excel, Docs, a folder — anything"><Input value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="https://drive.google.com/…" /></Field>
         <Field label="Notes" optional><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} className="min-h-[80px]" placeholder="What's in it…" /></Field>
-        <Field label="Share with" optional>
+        {manage && <Field label="Share with" optional hint="Can view: open it · Can edit: also change name, link, notes · Full access: also share and delete">
           <div className="rounded-xl border border-white/[0.08] p-3">
             <SearchInput value={q} onChange={setQ} placeholder="Search name, role, type…" className="mb-2" />
             <div className="max-h-60 overflow-y-auto -mx-1">
               {shown.map((e) => (
-                <label key={e.id} className={cn("flex items-center gap-3 rounded-lg px-2 py-1.5 cursor-pointer", picked.has(e.id) ? "bg-brand-500/[0.08]" : "hover:bg-white/[0.04]")}>
-                  <input type="checkbox" className="size-4 accent-[#7c5cff]" checked={picked.has(e.id)} onChange={() => flip(e.id)} />
-                  <Avatar person={e} size={26} />
-                  <span className="flex-1 min-w-0 truncate text-[13.5px]">{e.full_name}</span>
-                  <span className="text-[11.5px] text-fg-4">{e.employment_type}</span>
-                </label>
+                <div key={e.id} className={cn("flex items-center gap-2 rounded-lg px-2 py-1.5", picked.has(e.id) ? "bg-brand-500/[0.08]" : "hover:bg-white/[0.04]")}>
+                  <label className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer">
+                    <input type="checkbox" className="size-4 accent-[#7c5cff]" checked={picked.has(e.id)} onChange={() => flip(e.id)} />
+                    <Avatar person={e} size={26} />
+                    <span className="flex-1 min-w-0 truncate text-[13.5px]">{e.full_name}</span>
+                  </label>
+                  {picked.has(e.id)
+                    ? <Select className="input-sm h-[30px] w-[124px] text-[12.5px]" value={picked.get(e.id)} options={ACCESS_OPTIONS}
+                        aria-label={`What ${e.full_name} can do`} onChange={(ev) => setAccess(e.id, ev.target.value as Access)} />
+                    : <span className="text-[11.5px] text-fg-4">{e.employment_type}</span>}
+                </div>
               ))}
               {!shown.length && <p className="px-2 py-3 text-[13px] text-fg-4">No one found.</p>}
             </div>
             <div className="mt-2 text-[12px] text-fg-4">{picked.size} selected</div>
           </div>
-        </Field>
+        </Field>}
       </div>
     </Drawer>
   );
