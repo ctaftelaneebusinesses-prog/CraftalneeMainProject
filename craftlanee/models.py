@@ -56,6 +56,7 @@ PERMISSIONS = {
     "announcements": ("Announcements", "Post announcements with links and photos to everyone or chosen people"),
     "projects": ("Project documents", "Upload project documents and share them with everyone or with chosen people"),
     "complaints": ("Complaints", "Can be chosen to receive complaints from anyone on the team, and reply to and resolve them"),
+    "daily_updates": ("Daily updates", "See everyone's daily call report — calls made, left, rejected, no response, demo / video asked"),
     "followups": ("Client follow-ups", "Clients and leads, their status, next follow-up dates and call / meeting notes"),
     "settings": ("Settings & audit log", "Company details, logo, signature, default letter terms and the audit log"),
 }
@@ -850,3 +851,25 @@ class Sheet(TimestampMixin, db.Model):
     owner_name = db.Column(db.String(120))
 
     shares = db.relationship("SheetShare", cascade="all, delete-orphan", lazy="selectin")
+
+
+DAILY_COUNTS = ["calls_total", "calls_left", "rejected", "no_response", "demo_requested", "video_requested"]
+
+
+class DailyUpdate(TimestampMixin, db.Model):
+    """One person's end-of-day call report. Founders, the project manager and admins with "daily_updates" read them."""
+    __tablename__ = "daily_updates"
+    __table_args__ = (db.UniqueConstraint("employee_id", "day", name="uq_daily_update_day"),)
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True)
+    day = db.Column(db.Date, nullable=False, index=True)
+    calls_total = db.Column(db.Integer, default=0, nullable=False)      # calls made today
+    calls_left = db.Column(db.Integer, default=0, nullable=False)       # still to call
+    rejected = db.Column(db.Integer, default=0, nullable=False)
+    no_response = db.Column(db.Integer, default=0, nullable=False)
+    demo_requested = db.Column(db.Integer, default=0, nullable=False)   # follow up later
+    video_requested = db.Column(db.Integer, default=0, nullable=False)  # follow up later
+    followup_details = db.Column(db.Text)  # who asked for a demo / video, to follow up
+    notes = db.Column(db.Text)
+
+    employee = db.relationship("Employee", lazy="selectin")

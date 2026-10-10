@@ -46,7 +46,7 @@ export interface EmployeeFull extends EmployeeBrief {
 }
 
 /** Console areas the founder can grant (mirrors PERMISSIONS in craftlanee/models.py). */
-export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements" | "followups" | "projects" | "complaints";
+export type Area = "employees" | "payroll" | "documents" | "finance" | "leaves" | "team" | "settings" | "announcements" | "followups" | "projects" | "complaints" | "daily_updates";
 export interface AreaInfo { key: Area; label: string; description: string }
 
 export interface LoginInfo { email: string; active: boolean; is_admin: boolean; permissions: Area[]; last_login_at: string | null }
