@@ -72,6 +72,7 @@ export interface User {
   permissions: Area[]; // console areas this user may use (all of them for the founder)
   full_access: boolean; // has every area
   is_primary: boolean; // the main founder login: changes signatures and reads the audit log
+  photo_url: string | null; // founder's own photo (employees use employee.photo_url)
   employee: EmployeeBrief | null;
 }
 

@@ -78,6 +78,7 @@ export function navFor(user: SessionUser | null): NavGroup[] {
   if (!user.is_admin) return EMPLOYEE_NAV;
   const groups = [...ADMIN_NAV];
   if (user.employee) groups.push({ label: "My workspace", items: MY_WORKSPACE });
+  else if (user.is_owner) groups.push({ label: "Me", items: [{ to: "/profile", label: "My profile", icon: User }] });
   groups.push({ items: [{ to: "/settings", label: "Settings", icon: Settings, area: "settings" }] });
   return trim(user, groups);
 }

@@ -93,6 +93,12 @@ class User(UserMixin, TimestampMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False)  # founder-granted console access
     permissions = db.Column(db.Text)  # JSON list of PERMISSIONS keys; NULL on an admin = everything (older grants)
     last_login_at = db.Column(db.DateTime)
+    # Personal profile for founder logins (employees keep theirs on the Employee record).
+    designation = db.Column(db.String(120))
+    phone = db.Column(db.String(40))
+    date_of_birth = db.Column(db.Date)
+    address = db.Column(db.Text)
+    photo_path = db.Column(db.String(255))
 
     employee = db.relationship("Employee", back_populates="user", lazy="selectin")
 

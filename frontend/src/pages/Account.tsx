@@ -86,7 +86,7 @@ export default function Account() {
       <PageHeader eyebrow="Account" title="Your account" subtitle="Manage your sign-in details." />
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start max-w-[980px]">
         <Card className="p-6 text-center">
-          <div className="flex justify-center"><Avatar person={user?.employee ?? { initials: (user?.name ?? "?")[0].toUpperCase(), id: user?.id }} size={84} ring /></div>
+          <div className="flex justify-center"><Avatar person={user?.employee ?? { initials: (user?.name ?? "?")[0].toUpperCase(), id: user?.id, photo_url: user?.photo_url }} size={84} ring /></div>
           <div className="font-display font-semibold text-[18px] mt-4">{user?.name}</div>
           <div className="text-fg-3 text-[13px]">{user?.email}</div>
           <div className="mt-4 inline-flex items-center gap-2 text-[12.5px] text-good"><ShieldCheck className="size-4" />{user?.is_owner ? "Founder · full access" : user?.is_admin ? `Admin · ${user.full_access ? "full access" : `${user.permissions.length} area${user.permissions.length === 1 ? "" : "s"}`} (granted by founder)` : "Employee · own data only"}</div>

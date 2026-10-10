@@ -9,8 +9,8 @@ from flask_login import current_user, login_required, login_user, logout_user
 from ..extensions import db
 from ..models import ROLE_FOUNDER, User, now
 from ..security import csrf_token
-from ..utils import audit, clean, get_settings
-from .common import bp, company, employee_brief, fail, fail_if, iso, ok
+from ..utils import IMAGE_EXTS, audit, clean, delete_file, get_settings, parse_date, save_upload
+from .common import bp, body, company, employee_brief, fail, fail_if, file_url, iso, ok
 
 # In-memory throttle: 8 failed attempts per email+IP within 10 minutes.
 _FAILS = defaultdict(list)
@@ -29,7 +29,14 @@ def user_payload(user):
     return {"id": user.id, "name": user.name, "email": user.email, "role": user.role,
             "is_admin": user.has_admin, "is_owner": user.is_founder, "permissions": sorted(user.perms),
             "full_access": user.full_access, "is_primary": user.is_primary,
+            "photo_url": file_url("user_photo", user) if user.photo_path else None,
             "employee": employee_brief(user.employee) if user.employee else None}
+
+
+def profile_payload(user):
+    return {"name": user.name, "email": user.email, "designation": user.designation, "phone": user.phone,
+            "date_of_birth": iso(user.date_of_birth), "address": user.address,
+            "photo_url": file_url("user_photo", user) if user.photo_path else None}
 
 
 def _needs_setup():
@@ -129,6 +136,52 @@ def change_password():
     current_user.set_password(new)
     db.session.commit()
     return ok(message="Password updated.")
+
+
+# ------------------------------------------------------------------ founder profile
+# Founders have no employee record, so their personal details and photo live on their login.
+
+@bp.get("/auth/profile")
+@login_required
+def profile_get():
+    if not current_user.is_founder:
+        fail("Not found.", 404)
+    return ok(profile=profile_payload(current_user))
+
+
+@bp.put("/auth/profile")
+@login_required
+def profile_update():
+    if not current_user.is_founder:
+        fail("Not found.", 404)
+    d, u = body(), current_user
+    replaced = None
+    photo = request.files.get("photo")
+    if photo and photo.filename:
+        try:
+            rel, _ = save_upload(photo, "photos", IMAGE_EXTS)
+        except ValueError as exc:
+            fail(str(exc))
+        replaced, u.photo_path = u.photo_path, rel
+    elif str(d.get("remove_photo", "")).lower() in ("1", "true"):
+        replaced, u.photo_path = u.photo_path, None
+    if "name" in d:
+        name = clean(d, "name", 120)
+        if not name:
+            fail("Your name can't be empty.")
+        u.name = name
+    for key, size in (("designation", 120), ("phone", 40), ("address", 2000)):
+        if key in d:
+            setattr(u, key, clean(d, key, size) or None)
+    if "date_of_birth" in d:
+        raw = clean(d, "date_of_birth")
+        u.date_of_birth = parse_date(raw)
+        if raw and u.date_of_birth is None:
+            fail("Enter the date of birth as a valid date.")
+    u.updated_at = now()  # refresh the photo URL's cache-buster
+    db.session.commit()
+    delete_file(replaced)
+    return ok(profile=profile_payload(u), user=user_payload(u))
 
 
 # ------------------------------------------------------------------ extra founder logins

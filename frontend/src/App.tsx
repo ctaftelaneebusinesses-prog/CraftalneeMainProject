@@ -51,6 +51,7 @@ const Announcements = page(() => import("@/pages/Announcements"));
 const Projects = page(() => import("@/pages/Projects"));
 const Complaints = page(() => import("@/pages/Complaints"));
 const SharedLinks = page(() => import("@/pages/SharedLinks"));
+const FounderProfile = page(() => import("@/pages/founder/Profile"));
 const PortalHome = page(() => import("@/pages/portal/Home"));
 const PortalProfile = page(() => import("@/pages/portal/Profile"));
 const PortalDocuments = page(() => import("@/pages/portal/Documents"));
@@ -98,6 +99,7 @@ export default function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/complaints" element={<Complaints />} />
           <Route path="/shared-links" element={<SharedLinks />} />
+          <Route path="/profile" element={user?.is_owner ? <FounderProfile /> : <Navigate to="/me/profile" replace />} />
           {/* founder */}
           <Route path="/dashboard" element={founder(<Dashboard />)} />
           <Route path="/employees" element={founder(<Employees />, "employees")} />

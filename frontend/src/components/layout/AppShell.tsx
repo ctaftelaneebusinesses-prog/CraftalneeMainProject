@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronsUpDown, KeyRound, LogOut, Menu, Moon, Search, ShieldCheck, Sun, X } from "lucide-react";
+import { ChevronsUpDown, KeyRound, LogOut, UserRound, Menu, Moon, Search, ShieldCheck, Sun, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { can, useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
@@ -102,13 +102,14 @@ function SidebarContent({ groups, counts, onNavigate }: { groups: NavGroup[]; co
           {menu && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
               className="absolute bottom-full left-3 right-3 mb-2 glass panel p-1.5 z-10">
+              {user?.is_owner && <NavLink to="/profile" onClick={() => { setMenu(false); onNavigate?.(); }} className="nav-item"><UserRound /> My profile</NavLink>}
               <NavLink to="/account" onClick={() => { setMenu(false); onNavigate?.(); }} className="nav-item"><KeyRound /> Account & password</NavLink>
               <button onClick={() => signOut()} className="nav-item w-full text-bad hover:text-bad"><LogOut /> Sign out</button>
             </motion.div>
           )}
         </AnimatePresence>
         <button onClick={() => setMenu((m) => !m)} className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-white/[0.04] transition-colors text-left">
-          <Avatar person={user?.employee ?? { initials: (user?.name ?? "?").slice(0, 1).toUpperCase(), id: user?.id }} size={34} />
+          <Avatar person={user?.employee ?? { initials: (user?.name ?? "?").slice(0, 1).toUpperCase(), id: user?.id, photo_url: user?.photo_url }} size={34} />
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold truncate flex items-center gap-1.5">{user?.name}{user?.is_admin && <ShieldCheck className="size-3.5 text-brand-300 shrink-0" />}</div>
             <div className="text-[11.5px] text-fg-4 truncate">{user?.is_owner ? "Founder · Owner" : user?.employee?.designation ?? "Employee"}{user?.is_admin && !user.is_owner ? " · Admin" : ""}</div>
